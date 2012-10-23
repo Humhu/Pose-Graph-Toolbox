@@ -2,7 +2,7 @@
 classdef World2D < handle
     
     properties
-        dims;           % World size
+        dims;           % World size centered at 0
         time;           % World time
         robot_poses;    % Robot poses
         num_robots;     % Number of robots
@@ -29,7 +29,8 @@ classdef World2D < handle
             obj.fig = figure;
             obj.axe = axes;
             axis(obj.axe, 'equal');
-            axis(obj.axe, [0, obj.dims(1), 0, obj.dims(2)]);
+            axis(obj.axe, [-obj.dims(1)/2, obj.dims(1)/2, ...
+                -obj.dims(2)/2, obj.dims(2)/2]);
         end
         
         function delete(obj)
@@ -40,7 +41,9 @@ classdef World2D < handle
         
         function InitRobots(obj, N)
             dim_scale = reshape(obj.dims, 1, 1, 2);
+            dim_offset = dim_scale/2;
             positions = bsxfun(@times, dim_scale, rand(N,1,2));
+            positions = bsxfun(@minus, positions, dim_offset);
             orientations = 2*pi*rand(N,1);
             obj.robot_poses = Pose2D(positions, orientations);
             obj.num_robots = N;
