@@ -1,5 +1,4 @@
 % Represents a single angle in range [-pi, pi]
-% TODO: Extend to support N-dimensional arrays
 classdef Orientation1D
     
     properties

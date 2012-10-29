@@ -4,7 +4,7 @@ classdef World2D < handle
     properties
         dims;           % World size centered at 0
         time;           % World time
-        robot_poses;    % Robot poses
+        robots = Robot; % Robot poses
         num_robots;     % Number of robots
         
         fig;            % Visualization figure handle
@@ -40,54 +40,55 @@ classdef World2D < handle
         end
         
         function InitRobots(obj, N)
+            
             dim_scale = reshape(obj.dims, 1, 1, 2);
             dim_offset = dim_scale/2;
             positions = bsxfun(@times, dim_scale, rand(N,1,2));
             positions = bsxfun(@minus, positions, dim_offset);
             orientations = 2*pi*rand(N,1);
-            obj.robot_poses = Pose2D(positions, orientations);
+            
+            obj.robots(N) = Robot;
+            
+            for i = 1:N
+                r = obj.robots(i);
+                r.pose = Pose2D(positions(i,:,:),orientations(i));
+                r.id = i;
+                r.sensor_range = Inf;% 0.5;
+                r.sensor_mean = [0;0];
+                r.sensor_covariance = 0.01*eye(2);
+            end
+            
             obj.num_robots = N;
             obj.colors = hsv(N);
             
         end
         
-        function [relations] = GetRelations(obj)
+        function [relations, ids] = GetRelations(obj)
             
-            relations(obj.num_robots, obj.num_robots) = Pose2D;
+            relations = [];
+            ids = [];
             
-            for i = 1:obj.num_robots
-                for j = 1:obj.num_robots
-                    if i == j
-                        relations(i,j) = Pose2D(reshape([0,0],1,1,2), 0);
-                        continue
-                    end
-                    pi = obj.robot_poses(i);
-                    pj = obj.robot_poses(j);
-                    rel_pos = pj.position - pi.position;
-                    rel_bearing = Orientation1D(atan2(rel_pos(2), rel_pos(1))) - pi.orientation;
-                    relations(i,j) = Pose2D(reshape(rel_pos, 1, 1, 2), rel_bearing);
-                end
+            for i = 1:obj.num_robots;
+                
+                [rel_i, id_i] = obj.robots(i).GetRelations(obj);
+                relations = [relations, rel_i];
+                ids = [ids, id_i];
+                
             end
             
         end
         
-        function [ranges, angles] = GetMeasurements(obj, covariance)
+        function [measurements, ids] = GetMeasurements(obj)
             
-            relations = obj.GetRelations;
-            ranges = zeros(obj.num_robots, obj.num_robots);
-            angles(obj.num_robots, obj.num_robots) = Orientation1D;
+            measurements = [];
+            ids = [];
             
-            for i = 1:obj.num_robots
-                for j = 1:obj.num_robots
-                    noise = mvnrnd([0; 0], covariance);
-                    ranges(i,j) = norm(relations(i,j).position) + noise(1);
-                    angles(i,j) = relations(i,j).orientation + Orientation1D(noise(2));
-                end
-            end
-            
-            for i = 1:obj.num_robots
-                ranges(i,i) = 0;
-                angles(i,i) = Orientation1D(0);
+            for i = 1:obj.num_robots;
+                
+                [rel_i, id_i] = obj.robots(i).GetMeasurements(obj);
+                measurements = [measurements, rel_i];
+                ids = [ids, id_i];
+                
             end
             
         end
@@ -98,7 +99,7 @@ classdef World2D < handle
             
             for i = 1:obj.num_robots
                 
-                p = obj.robot_poses(i);
+                p = obj.robots(i).pose;
                 x = p.position(1);
                 y = p.position(2);
                 color = obj.colors(i,:);
@@ -121,34 +122,32 @@ classdef World2D < handle
             
         end
         
-        function PlotMeasurements(obj, ranges, angles)
+        function PlotMeasurements(obj, measurements, ids)
             
-            for i = 1:obj.num_robots
+            num_meas = size(ids, 2);
+            
+            for i = 1:num_meas
                 
-                color = obj.colors(i,:);
+                m = measurements(i);
+                id1 = ids(1,i);
                 
-                for j = 1:obj.num_robots
-                    
-                    if(i == j)
-                        continue;
-                    end
-                    
-                    p = obj.robot_poses(i);
-                    x = p.position(1);
-                    y = p.position(2);
-                    t = p.orientation;
-
-                    r = ranges(i,j);
-                    a = angles(i,j);
-                    
-                    % Plot orientation tick
-                    dx = r*cos(double(t + a));
-                    dy = r*sin(double(t + a));
-                    line_x = [x, x + dx];
-                    line_y = [y, y + dy];
-                    line(line_x, line_y, 'linewidth', obj.measurement_thickness, 'color', color);
-                    
-                end
+                color = obj.colors(id1,:);
+                                
+                p = obj.robots(id1).pose;
+                x = p.position(1);
+                y = p.position(2);
+                t = p.orientation;
+                
+                r = m.range
+                a = m.bearing
+                
+                % Plot orientation tick
+                dx = r*cos(double(t + a))
+                dy = r*sin(double(t + a))
+                line_x = [x, x + dx];
+                line_y = [y, y + dy];
+                line(line_x, line_y, 'linewidth', obj.measurement_thickness, 'color', color);
+                
             end
             
         end
