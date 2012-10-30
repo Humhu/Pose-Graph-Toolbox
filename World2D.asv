@@ -70,7 +70,7 @@ classdef World2D < handle
             for i = 1:obj.num_robots;
                 
                 [rel_i, id_i] = obj.robots(i).GetMeasurements(obj);
-                if isempty(id_i)
+                if isempty(id)
                     continue
                 end
                 measurements = [measurements, rel_i];
