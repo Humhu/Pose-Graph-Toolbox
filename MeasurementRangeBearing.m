@@ -1,30 +1,32 @@
 % Container for measurements
-classdef MeasurementRangeBearing
+classdef MeasurementRangeBearing < Measurement
     
     properties
         range;
         bearing = Orientation1D;
-        covariance;        
+        covariance;
+        observer_id;
+        target_id;
     end
     
     methods
         
-        function obj = MeasurementRangeBearing(range, bearing, covariance)
+        function obj = MeasurementRangeBearing(rng, bea, cov, obs_id, tar_id)
             if nargin == 0
                 return
             end
             
-            obj.range = range;
-            obj.bearing = bearing;
-            obj.covariance = covariance;
-            
+            obj.range = rng;
+            obj.bearing = bea;
+            obj.covariance = cov;
+            obj.observer_id = obs_id;
+            obj.target_id = tar_id;
         end                
         
         function D = double(obj)
                        
-            D = zeros(size(obj,1), size(obj,2),2);
-            D(:,:,1) = reshape([obj.range], size(obj));
-            D(:,:,2) = double(reshape([obj.bearing], size(obj)));
+            D = [obj.range; double(obj.bearing); obj.covariance; ...
+                obj.observer_id; obj.target_id];
             
         end
         

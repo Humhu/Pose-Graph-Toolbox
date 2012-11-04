@@ -7,6 +7,7 @@ classdef Robot < handle
         pose;
         id;
         
+        sensor_type;
         sensor_range;
         sensor_mean;
         sensor_covariance;
@@ -51,14 +52,28 @@ classdef Robot < handle
             
         end
         
-        function [measurements, ids] = GetMeasurements(obj, world)
+        function [measurements] = GetMeasurements(obj, world)
+            
+            if strcmp(obj.sensor_type, 'RangeBearing')
+                measurements = obj.GetMeasurementsRangeBearing(world);
+            elseif strcmp(obj.sensor_type, 'RelativePose')
+                measurements = obj.GetMeasurementsRelativePose(world);
+            end
+            
+            
+            
+        end
+    end
+    
+    methods(Access = private)
+        
+        % TODO: Fix growing in loop by preallocating and trimming?
+        function [measurements] = GetMeasurementsRangeBearing(obj, world)
             
             [relations, rel_ids] = obj.GetRelations(world);
             num_neighbors = size(rel_ids,2);
             
-            measurements = MeasurementRangeBearing;
-            ids = [];
-            
+            measurements = {};
             j = 1;
             for i = 1:num_neighbors
                 
@@ -71,10 +86,41 @@ classdef Robot < handle
                 if range < 0
                     range = 0;
                 end
-                angle = relations(i).orientation + Orientation1D(noise(2));                
-                measurements(j) = MeasurementRangeBearing(range, angle, ...
-                    obj.sensor_covariance);
-                ids(:,j) = rel_ids(:,i);
+                
+                angle = relations(i).orientation + Orientation1D(noise(2));
+                
+                measurements{j} = MeasurementRangeBearing(range, angle, ...
+                    obj.sensor_covariance, rel_ids(1,i), rel_ids(2,i));
+                j = j + 1;
+                
+            end
+            
+        end
+        
+        function [measurements] = GetMeasurementsRelativePose(obj, world)
+            
+            [relations, rel_ids] = obj.GetRelations(world);
+            num_neighbors = size(rel_ids, 2);
+            
+            measurements = {};
+            j = 1;
+            for i = 1:num_neighbors
+               
+                pos = relations(i).position;
+                
+                if(norm(pos) > obj.sensor_range)
+                    continue
+                end
+                
+                ori = relations(i).orientation;
+                noise = mvnrnd(obj.sensor_mean, obj.sensor_covariance)';
+                t = double(obj.pose.orientation);
+                R = [cos(t), sin(t);
+                     -sin(t), cos(t)];
+                disp = R*pos + noise(1:2,1);
+                rel_ori = ori - obj.pose.orientation + noise(3);
+                measurements{j} = MeasurementRelativePose(disp, rel_ori, ...
+                    obj.sensor_covariance, rel_ids(1,i), rel_ids(2,i));
                 j = j + 1;
                 
             end
@@ -82,5 +128,6 @@ classdef Robot < handle
         end
         
     end
+    
     
 end

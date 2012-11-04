@@ -86,17 +86,18 @@ classdef Plotter2D < handle
             
         end
         
-        function PlotMeasurements(obj, measurements, ids)
+        function PlotMeasurements(obj, measurements)
             
             %figure(obj.fig);
             axes(obj.axe);
             
-            num_meas = size(ids, 2);
+            num_meas = numel(measurements);
             
             for i = 1:num_meas
                 
-                m = measurements(i);
-                id1 = ids(1,i);
+                m = measurements{i};
+                %id1 = ids(1,i);
+                id1 = m.observer_id;
                 
                 color = obj.colors(id1,:);
                 

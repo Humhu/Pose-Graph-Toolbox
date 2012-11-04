@@ -8,8 +8,8 @@ classdef World2D < handle
         num_robots;     % Number of robots
         
         default_sensor_range = 0.5;
-        default_sensor_mean = [0;0];
-        default_sensor_cov = 0.01*eye(2);
+        default_sensor_mean = [0;0;0];
+        default_sensor_cov = 0.01*eye(3);
         
     end
     
@@ -41,6 +41,7 @@ classdef World2D < handle
                 r.sensor_range = obj.default_sensor_range;
                 r.sensor_mean = obj.default_sensor_mean;
                 r.sensor_covariance = obj.default_sensor_cov;
+                r.sensor_type = 'RelativePose';               
             end
             
             obj.num_robots = N;
@@ -62,19 +63,17 @@ classdef World2D < handle
             
         end
         
-        function [measurements, ids] = GetMeasurements(obj)
+        function [measurements] = GetMeasurements(obj)
             
             measurements = [];
-            ids = [];
             
             for i = 1:obj.num_robots;
                 
-                [rel_i, id_i] = obj.robots(i).GetMeasurements(obj);
-                if isempty(id_i)
+                [rel_i] = obj.robots(i).GetMeasurements(obj);
+                if isempty(rel_i)
                     continue
                 end
                 measurements = [measurements, rel_i];
-                ids = [ids, id_i];
                 
             end
             

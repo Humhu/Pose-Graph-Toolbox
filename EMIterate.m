@@ -1,5 +1,5 @@
 % Represents an iterative localization problem
-classdef GNIterate < handle
+classdef EMIterate < handle
     
     properties
         
@@ -12,19 +12,20 @@ classdef GNIterate < handle
         
         pose_beliefs = Pose2D;
         meas;
+        meas_ids;
         step_magnitude = Inf;
         
     end
     
     methods
         
-        function obj = GNIterate(true, est)
+        function obj = EMIterate(true, est)
             
             if nargin == 0
                 return
             end
             
-            obj.true_world = true;            
+            obj.true_world = true;
             obj.true_plotter = Plotter2D(obj.true_world.dims);
             obj.true_plotter.ReadSource(obj.true_world);
             obj.true_plotter.Label('True World');
@@ -39,16 +40,16 @@ classdef GNIterate < handle
         end
         
         function [] = Update(obj)
-           
+            
             obj.pose_beliefs = obj.est_world.GetPoses();
             [obj.meas] = obj.true_world.GetMeasurements();
             
-        end                    
+        end
         
         function [] = Solve(obj, tol, max_iters)
-           
+            
             while true
-               
+                
                 if obj.step_magnitude < tol || obj.step > max_iters
                     break
                 end
@@ -59,76 +60,51 @@ classdef GNIterate < handle
             
         end
         
-        function [] = Iterate(obj)                       
+        function [] = Iterate(obj)
             
             % Calculate errors
             N = numel(obj.pose_beliefs);
-            errors = zeros(N,N,2);
             
-            num_rels = size(obj.meas, 2);
+            num_rels = numel(obj.meas);
             
+            % Calculate maximum likelihood errors
+            sum_info = zeros(3,3,N); % Denominator - sum of covariances
+            sum_data = zeros(3,1,N); % Numerator - sum of weighted data
             for k = 1:num_rels
                 
                 z = obj.meas{k};
-                r = z.range;
-                a = z.bearing;
+                r = z.displacement;
+                a = double(z.rotation);
                 i = z.observer_id;
-                j = z.target_id;                                
+                j = z.target_id;
+                c = z.covariance;
                 
                 pi = obj.pose_beliefs(i);
-                pix = pi.position(1);
-                piy = pi.position(2);
+                pix = pi.position;
                 pit = pi.orientation;
-                pj = obj.pose_beliefs(j);
-                pjx = pj.position(1);
-                pjy = pj.position(2);
-
-                ex = pjx - pix - r*cos(double(a + pit));
-                ey = pjy - piy - r*sin(double(a + pit));
                 
-                errors(i,j,1) = ex;
-                errors(i,j,2) = ey;
+                t = double(pit);
+                R = [cos(t), -sin(t);
+                    sin(t), cos(t)];
+                pj_est = [pix + R*r;
+                    double(pit + a)];
                 
-            end
-            
-            % Generate Jacobian
-            H = zeros(3*N);
-            b = zeros(3*N,1);
-            
-            for k = 1:num_rels
-                
-                z = obj.meas{k};
-                r = z.range;
-                a = z.bearing;
-                i = z.observer_id;
-                j = z.target_id; 
-                
-                Jij = zeros(2, 3*N);
-                
-                pi = obj.pose_beliefs(i);
-                ti = pi.orientation;
-
-                info = obj.meas{i}.covariance^-1;
-                
-                dt = [  r*sin(double(ti + a));
-                    -r*cos(double(ti + a))];
-                Jij(:, 3*i - 2:3*i) = [-eye(2), dt];
-                Jij(:, 3*j - 2:3*j) = [eye(2), zeros(2,1)];
-                
-                Hij = Jij'*info*Jij;
-                H = H + Hij;
-                
-                e = reshape(errors(i,j,:), 2, 1);
-                bij = e'*info*Jij;
-                b = b + bij';
+                w = c^-1;
+                sum_data(:,:,j) = sum_data(:,:,j) + w*pj_est;
+                sum_info(:,:,j) = sum_info(:,:,j) + w;
                 
             end
             
-            % Have to fix one pose or else system unsolvable
-            H = [H; eye(3), zeros(3,3*(N-1))];
-            b = [b; zeros(3,1)];
-            
-            dx = -H\b;
+            for k = 1:N
+                
+                data = sum_data(:,:,k);
+                info = sum_info(:,:,k);
+                
+                p_new = (info^-1)*data;
+                p_new = reshape(p_new, 1, 1, 3);
+                obj.pose_beliefs(k) = Pose2D(p_new(:,:,1:2), p_new(3));
+                
+            end
             
             obj.step_magnitude = norm(dx);
             
@@ -146,11 +122,11 @@ classdef GNIterate < handle
             
             obj.true_plotter.ReadSource(obj.true_world);
             obj.true_plotter.PlotPoses();
-            obj.true_plotter.PlotMeasurements(obj.meas);
+            obj.true_plotter.PlotMeasurements(obj.meas, obj.meas_ids);
             
-            obj.est_plotter.ReadSource(obj.pose_beliefs);           
+            obj.est_plotter.ReadSource(obj.pose_beliefs);
             obj.est_plotter.PlotPoses();
-            obj.est_plotter.PlotMeasurements(obj.meas);
+            obj.est_plotter.PlotMeasurements(obj.meas, obj.meas_ids);
             
         end
         

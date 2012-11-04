@@ -1,22 +1,10 @@
-% Container for measurements
-classdef Measurement
+% Superclass container for measurements
+classdef (Abstract) Measurement
     
-    properties
-        mean;
-        variance;        
-    end
-    
-    methods
+    properties (Abstract)
         
-        function obj = Measurement(mean, variance)
-            if nargin == 0
-                return
-            end
-            
-            obj.mean = mean;
-            obj.variance = variance;
-            
-        end                
+        observer_id;    % World ID of agent that produced this observation.
+        target_id;      % World ID of agent being observed. -1 if unknown.
         
     end
     
