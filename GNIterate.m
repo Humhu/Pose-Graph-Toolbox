@@ -146,7 +146,7 @@ classdef GNIterate < handle
             
             obj.true_plotter.ReadSource(obj.true_world);
             obj.true_plotter.PlotPoses();
-            obj.true_plotter.PlotMeasurements(obj.meas);
+            %obj.true_plotter.PlotMeasurements(obj.meas);
             
             obj.est_plotter.ReadSource(obj.pose_beliefs);           
             obj.est_plotter.PlotPoses();

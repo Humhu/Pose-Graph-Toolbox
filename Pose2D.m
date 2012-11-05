@@ -8,11 +8,6 @@ classdef Pose2D
     
     methods
         
-        % Create a new Pose2D from a position vector and orientation
-        % The orientation can be either a double or an Orientation1D
-        %
-        % An i x j x 2 position matrix returns an i x j matrix of poses
-        % The orientation matrix should also then be i x j
         function obj = Pose2D(position, orientation)
             if nargin == 0
                 return

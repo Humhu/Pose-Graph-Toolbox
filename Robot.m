@@ -44,8 +44,8 @@ classdef Robot < handle
                 rp = ri.pose;
                 rel_pos = rp.position - p.position;
                 
-                rel_bearing = Orientation1D(atan2(rel_pos(2), rel_pos(1))) - p.orientation;
-                relations = [relations, Pose2D(reshape(rel_pos, 1, 1, 2), rel_bearing)];
+                rel_ori = rp.orientation - p.orientation;
+                relations = [relations, Pose2D(reshape(rel_pos, 1, 1, 2), rel_ori)];
                 ids = [ids, [obj.id; ri.id]];
                 
             end
@@ -77,19 +77,22 @@ classdef Robot < handle
             j = 1;
             for i = 1:num_neighbors
                 
-                if(norm(relations(i).position) > obj.sensor_range)
+                rel = relations(i);
+                r = norm(rel.position);
+                if(r > obj.sensor_range)
                     continue
                 end
                 
                 noise = mvnrnd(obj.sensor_mean, obj.sensor_covariance);
-                range = norm(relations(i).position) + noise(1);
-                if range < 0
-                    range = 0;
+                r = r + noise(1);
+                if r < 0
+                    r = 0;
                 end
                 
-                angle = relations(i).orientation + Orientation1D(noise(2));
+                b = Orientation1D(atan2(rel.position(2), rel.position(1))) - obj.pose.orientation;
+                b = b + Orientation1D(noise(2));
                 
-                measurements{j} = MeasurementRangeBearing(range, angle, ...
+                measurements{j} = MeasurementRangeBearing(r, b, ...
                     obj.sensor_covariance, rel_ids(1,i), rel_ids(2,i));
                 j = j + 1;
                 
@@ -118,7 +121,7 @@ classdef Robot < handle
                 R = [cos(t), sin(t);
                      -sin(t), cos(t)];
                 disp = R*pos + noise(1:2,1);
-                rel_ori = ori - obj.pose.orientation + noise(3);
+                rel_ori = ori + noise(3);
                 measurements{j} = MeasurementRelativePose(disp, rel_ori, ...
                     obj.sensor_covariance, rel_ids(1,i), rel_ids(2,i));
                 j = j + 1;

@@ -9,7 +9,7 @@ classdef World2D < handle
         
         default_sensor_range = 0.5;
         default_sensor_mean = [0;0;0];
-        default_sensor_cov = 0.01*eye(3);
+        default_sensor_cov = 0.001*eye(3);
         
     end
     
