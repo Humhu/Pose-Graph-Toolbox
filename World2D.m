@@ -15,12 +15,33 @@ classdef World2D < handle
     
     methods
         
-        function obj = World2D(world_size)
+        function obj = World2D(a)
             if nargin == 0
                 return
             end
             
-            obj.dims = reshape(world_size, 2, 1);
+            if isa(a, 'double')
+                obj.dims = reshape(a, 2, 1);
+                return
+            end
+            
+            if ~isa(a, 'World2D')
+                display('Invalid argument type');
+                return
+            end
+            
+            obj.dims = a.dims;
+            obj.time = a.time;
+            obj.num_robots = a.num_robots;
+            obj.default_sensor_range = a.default_sensor_range;
+            obj.default_sensor_mean = a.default_sensor_mean;
+            obj.default_sensor_cov = a.default_sensor_cov;
+            
+            obj.robots(obj.num_robots,1) = Robot;
+            
+            for i = 1:N
+               obj.robots(i) = Robot(a.robots(i)); 
+            end
             
         end
         
@@ -41,7 +62,7 @@ classdef World2D < handle
                 r.sensor_range = obj.default_sensor_range;
                 r.sensor_mean = obj.default_sensor_mean;
                 r.sensor_covariance = obj.default_sensor_cov;
-                r.sensor_type = 'RelativePose';               
+                r.sensor_type = 'RelativePose';
             end
             
             obj.num_robots = N;
@@ -80,10 +101,23 @@ classdef World2D < handle
         end
         
         function [poses] = GetPoses(obj)
-           
+            
             poses = reshape([obj.robots.pose], size(obj.robots));
             
         end
+       
+        function [err] = GetErrors(obj, w)
+            
+            if ~isa(w, 'World2D')
+                display('Invalid argument type')
+            end
+            
+            err = zeros(obj.num_robots, 3);
+            for i = 1:num_robots
+               p1 = obj.robots(i).pose;
+               p2 = w.robots(i).pose;
+               
+            end
         
     end
     

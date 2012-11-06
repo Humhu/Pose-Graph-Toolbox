@@ -16,10 +16,22 @@ classdef Robot < handle
     
     methods
         
-        function obj = Robot()
+        function obj = Robot(a)
             if nargin == 0
                 return
             end
+            
+            if ~isa(a, 'Robot')
+                display('Invalid argument type');
+                return
+            end
+            
+            obj.pose = a.pose;
+            obj.id = a.id;
+            obj.sensor_type = a.sensor_type;
+            obj.sensor_range = a.sensor_range;
+            obj.sensor_mean = a.sensor_mean;
+            obj.sensor_covariance = a.sensor_covariance;
             
         end
         

@@ -46,17 +46,15 @@ classdef EMIterate < handle
             
         end
         
-        function [] = Solve(obj, tol, max_iters)
+        function [] = Solve(obj, tol, max_iters, vis_on)
             
-            while true
-                
-                if obj.step_magnitude < tol || obj.step > max_iters
-                    break
-                end
-                
+            for i = 1:max_iters
                 obj.Iterate();
-                
+                if vis_on
+                    obj.Visualize();
+                end
             end
+            obj.Visualize();
             
         end
         
@@ -66,6 +64,8 @@ classdef EMIterate < handle
             N = numel(obj.pose_beliefs);
             
             num_rels = numel(obj.meas);
+            
+            anchor = obj.pose_beliefs(1);
             
             % Calculate maximum likelihood errors
             sum_info = zeros(3,3,N); % Denominator - sum of covariances
@@ -104,29 +104,30 @@ classdef EMIterate < handle
                 p_new = reshape(p_new, 1, 1, 3);
                 obj.pose_beliefs(k) = Pose2D(p_new(:,:,1:2), p_new(3));
                 
+            end                        
+                        
+            shift = obj.pose_beliefs(1) - anchor;
+            for k = 1:N
+               
+                obj.pose_beliefs(k) = obj.pose_beliefs(k) - shift;
+                
             end
             
-            obj.step_magnitude = norm(dx);
-            
-            d = shiftdim(reshape(dx, 1, 3, N), 2);
-            dPoses = Pose2D(d(:,:,1:2), d(:,:,3));
-            obj.pose_beliefs = obj.pose_beliefs + dPoses;
-            
-            obj.step = obj.step + 1;
-            
-            obj.Visualize();
+            obj.step = obj.step + 1;           
             
         end
         
         function [] = Visualize(obj)
             
+            obj.true_plotter.ClearPlot();
             obj.true_plotter.ReadSource(obj.true_world);
-            obj.true_plotter.PlotPoses();
-            obj.true_plotter.PlotMeasurements(obj.meas, obj.meas_ids);
+            %obj.true_plotter.PlotMeasurements(obj.meas);
+            obj.true_plotter.PlotPoses();            
             
+            obj.est_plotter.ClearPlot();
             obj.est_plotter.ReadSource(obj.pose_beliefs);
+            obj.est_plotter.PlotMeasurements(obj.meas);
             obj.est_plotter.PlotPoses();
-            obj.est_plotter.PlotMeasurements(obj.meas, obj.meas_ids);
             
         end
         

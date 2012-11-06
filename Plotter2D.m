@@ -11,7 +11,9 @@ classdef Plotter2D < handle
         tick_thickness  = 2;
         robot_size      = 0.025;
         robot_thickness = 2;
+        circle_points   = 8;
         measurement_thickness = 0.4;
+        text_size       = 10;
         
         poses = Pose2D;
         
@@ -36,7 +38,7 @@ classdef Plotter2D < handle
         end
         
         function [] = Label(obj, n)
-            
+                        
             obj.name = n;
             title(obj.axe, obj.name);
             
@@ -50,30 +52,44 @@ classdef Plotter2D < handle
                 obj.poses = src;
             end
             
-            obj.colors = hsv(numel(obj.poses));
+            if numel(obj.poses) ~= size(obj.colors,1)
+                obj.colors = hsv(numel(obj.poses));
+                obj.PlotLegend();
+            end
+            
+        end
+        
+        function [] = ClearPlot(obj)
+            
+            cla(obj.axe);
             
         end
         
         function [] = PlotPoses(obj)
             
-            cla(obj.axe);
             axes(obj.axe);
             
             n = numel(obj.poses);
             
+            hold on;
             for i = 1:n
                 p = obj.poses(i);
                 color = obj.colors(i,:);
-                obj.PlotPose(p, color, obj.robot_size);
-                obj.PlotLabel(p, num2str(i));
+                obj.PlotPose(p, color, obj.robot_size);                
             end
-            
-            %legend(cellstr(num2str((1:n)')), 'location', 'eastoutside');
+            for i = 1:n
+                p = obj.poses(i);
+               obj.PlotLabel(p, num2str(i)); 
+            end
+            hold off;
             
         end
         
         function PlotMeasurements(obj, measurements)
             
+            axes(obj.axe);
+            
+            hold on;
             for i = 1:numel(measurements)
                 m = measurements{i};
                 if isa(m, 'MeasurementRangeBearing')
@@ -82,6 +98,7 @@ classdef Plotter2D < handle
                     obj.PlotRelativePose(m);
                 end
             end
+            hold off;
             
         end
         
@@ -95,8 +112,10 @@ classdef Plotter2D < handle
             y = p.position(2);
             
             % Plot circle
-            viscircles([x, y], r, 'linewidth', obj.robot_thickness, ...
-                'edgecolor', c);
+            %viscircles([x, y], r, 'linewidth', obj.robot_thickness, ...
+            %    'edgecolor', c);
+            %plot(x, y, 'o', 'Color', c, 'MarkerSize', r, 'LineWidth', obj.robot_thickness);
+            DrawCircle([x,y], r, obj.circle_points, 'Color', c, 'LineWidth', obj.robot_thickness);
             
             % Plot orientation tick
             t = double(p.orientation);
@@ -109,14 +128,21 @@ classdef Plotter2D < handle
         end
         
         function PlotLabel(obj, p, l)
-                        
+            
             x = p.position(1);
             y = p.position(2);
-            text(x, y, l);
+            text(x, y, l, 'FontSize', obj.text_size, 'FontWeight', 'bold', 'HorizontalAlignment', 'Center');
             
         end
         
-        function PlotRangeBearing(obj, m)                        
+        function PlotLegend(obj)
+            
+            n = numel(obj.poses);
+            legend(cellstr(num2str((1:n)')), 'location', 'eastoutside');
+            
+        end
+        
+        function PlotRangeBearing(obj, m)
             
             id1 = m.observer_id;
             color = obj.colors(id1,:);
@@ -158,7 +184,7 @@ classdef Plotter2D < handle
             line(line_x, line_y, 'linewidth', obj.measurement_thickness, 'color', color);
             
             pn = Pose2D(reshape([x+dx,y+dy],1,1,2), t + m.rotation);
-            obj.PlotPose(pn, color, obj.robot_size/2);            
+            obj.PlotPose(pn, color, obj.robot_size/2);
             
         end
         
