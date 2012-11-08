@@ -16,6 +16,7 @@ classdef Plotter2D < handle
         text_size       = 10;
         
         poses = Pose2D;
+        ref_world;
         
         name;
         
@@ -23,12 +24,13 @@ classdef Plotter2D < handle
     
     methods
         
-        function obj = Plotter2D(world_size)
+        function obj = Plotter2D(ref)
             if nargin == 0
                 return
             end
             
-            obj.dims = reshape(world_size, 2, 1);
+            obj.ref_world = ref;            
+            obj.dims = reshape(obj.ref_world.dims, 2, 1);
             obj.fig = figure;
             obj.axe = axes;
             axis(obj.axe, 'equal');
@@ -45,6 +47,10 @@ classdef Plotter2D < handle
         end
         
         function [] = ReadSource(obj, src)
+            
+            if nargin == 1
+                src = obj.ref_world;
+            end
             
             if isa(src, 'World2D')
                 obj.poses = src.GetPoses();

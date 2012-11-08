@@ -3,10 +3,11 @@ classdef EMIterate < handle
     
     properties
         
-        true_plotter = Plotter2D;
-        est_plotter = Plotter2D;
-        true_world = World2D;
-        est_world = World2D;
+        true_plotter;
+        est_plotter;
+        
+        true_world;
+        est_world;
         
         step = 0;
         
@@ -26,13 +27,13 @@ classdef EMIterate < handle
             end
             
             obj.true_world = true;
-            obj.true_plotter = Plotter2D(obj.true_world.dims);
+            obj.true_plotter = Plotter2D(obj.true_world);
             obj.true_plotter.ReadSource(obj.true_world);
             obj.true_plotter.Label('True World');
             obj.true_plotter.PlotPoses();
             
             obj.est_world = est;
-            obj.est_plotter = Plotter2D(obj.est_world.dims);
+            obj.est_plotter = Plotter2D(obj.est_world);
             obj.est_plotter.ReadSource(obj.est_world);
             obj.est_plotter.Label('Estimated World');
             obj.est_plotter.PlotPoses();

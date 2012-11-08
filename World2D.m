@@ -4,10 +4,10 @@ classdef World2D < handle
     properties
         dims;           % World size centered at 0
         time;           % World time
-        robots = Robot; % Robot objects handles
+        robots;         % Robot objects handles
         num_robots;     % Number of robots
         
-        default_sensor_range = 0.5;
+        default_sensor_range = Inf;
         default_sensor_mean = [0;0;0];
         default_sensor_cov = 0.001*eye(3);
         
@@ -36,10 +36,10 @@ classdef World2D < handle
             obj.default_sensor_range = a.default_sensor_range;
             obj.default_sensor_mean = a.default_sensor_mean;
             obj.default_sensor_cov = a.default_sensor_cov;
-            
+            obj.robots = Robot;
             obj.robots(obj.num_robots,1) = Robot;
             
-            for i = 1:N
+            for i = 1:obj.num_robots
                obj.robots(i) = Robot(a.robots(i)); 
             end
             
@@ -53,6 +53,7 @@ classdef World2D < handle
             positions = bsxfun(@minus, positions, dim_offset);
             orientations = 2*pi*rand(N,1);
             
+            obj.robots = Robot;
             obj.robots(N,1) = Robot;
             
             for i = 1:N
@@ -69,12 +70,23 @@ classdef World2D < handle
             
         end
         
+        function [] = TickTime(obj)
+           
+            for i = 1:obj.num_robots
+               
+                r = obj.robots(i);
+                r.ExecuteMovement(obj);
+                
+            end
+            
+        end
+        
         function [relations, ids] = GetRelations(obj)
             
             relations = [];
             ids = [];
             
-            for i = 1:obj.num_robots;
+            for i = 1:obj.num_robots
                 
                 [rel_i, id_i] = obj.robots(i).GetRelations(obj);
                 relations = [relations, rel_i];
@@ -112,12 +124,8 @@ classdef World2D < handle
                 display('Invalid argument type')
             end
             
-            err = zeros(obj.num_robots, 3);
-            for i = 1:num_robots
-               p1 = obj.robots(i).pose;
-               p2 = w.robots(i).pose;
-               
-            end
+            err = double([obj.robots.pose] - [w.robots.pose]);
+        end
         
     end
     
