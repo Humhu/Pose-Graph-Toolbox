@@ -7,7 +7,7 @@ classdef Plotter2D < handle
         fig;            % Visualization figure handle
         axe;            % Visualization axes handle
         colors;         % Visualization colors
-        tick_length     = 0.025;
+        tick_length     = 0.04;
         tick_thickness  = 2;
         robot_size      = 0.025;
         robot_thickness = 2;
@@ -29,18 +29,20 @@ classdef Plotter2D < handle
                 return
             end
             
-            obj.ref_world = ref;            
+            obj.ref_world = ref;
             obj.dims = reshape(obj.ref_world.dims, 2, 1);
             obj.fig = figure;
             obj.axe = axes;
             axis(obj.axe, 'equal');
             axis(obj.axe, [-obj.dims(1)/2, obj.dims(1)/2, ...
                 -obj.dims(2)/2, obj.dims(2)/2]);
+            grid on;
+            axis square;
             
         end
         
         function [] = Label(obj, n)
-                        
+            
             obj.name = n;
             title(obj.axe, obj.name);
             
@@ -54,13 +56,15 @@ classdef Plotter2D < handle
             
             if isa(src, 'World2D')
                 obj.poses = src.GetPoses();
+            elseif isa(src, 'Recorder2D')
+                obj.poses = src.GetPoses();
             elseif isa(src, 'Pose2D')
                 obj.poses = src;
             end
             
             if numel(obj.poses) ~= size(obj.colors,1)
-                obj.colors = hsv(numel(obj.poses));
-                obj.PlotLegend();
+                obj.colors = hsv(size(obj.poses,1));
+                %obj.PlotLegend();
             end
             
         end
@@ -75,17 +79,22 @@ classdef Plotter2D < handle
             
             axes(obj.axe);
             
-            n = numel(obj.poses);
+            n = size(obj.poses,1);
+            t_steps = size(obj.poses,2);
             
             hold on;
             for i = 1:n
-                p = obj.poses(i);
-                color = obj.colors(i,:);
-                obj.PlotPose(p, color, obj.robot_size);                
+                for t = 1:t_steps
+                    p = obj.poses(i,t);
+                    color = obj.colors(i,:);
+                    obj.PlotPose(p, t, color, obj.robot_size);
+                end
             end
             for i = 1:n
-                p = obj.poses(i);
-               obj.PlotLabel(p, num2str(i)); 
+                for t = 1:t_steps
+                    p = obj.poses(i,t);
+                    obj.PlotLabel(p, t, num2str(i));
+                end
             end
             hold off;
             
@@ -112,32 +121,27 @@ classdef Plotter2D < handle
     
     methods(Access = private)
         
-        function PlotPose(obj, p, c, r)
+        function PlotPose(obj, p, t, c, r)
             
             x = p.position(1);
             y = p.position(2);
             
             % Plot circle
-            %viscircles([x, y], r, 'linewidth', obj.robot_thickness, ...
-            %    'edgecolor', c);
-            %plot(x, y, 'o', 'Color', c, 'MarkerSize', r, 'LineWidth', obj.robot_thickness);
-            DrawCircle([x,y], r, obj.circle_points, 'Color', c, 'LineWidth', obj.robot_thickness);
+            DrawCircle([x,y,t], r, obj.circle_points, 'Color', c, 'LineWidth', obj.robot_thickness);
             
             % Plot orientation tick
-            t = double(p.orientation);
-            dx = obj.tick_length*cos(t);
-            dy = obj.tick_length*sin(t);
-            line_x = [x, x + dx];
-            line_y = [y, y + dy];
-            line(line_x, line_y, 'linewidth', obj.tick_thickness, 'color', c);
+            a = double(p.orientation);
+            dx = obj.tick_length*cos(a);
+            dy = obj.tick_length*sin(a);
+            DrawLine([x, y, t], [x + dx, y + dy, t], 'Color', c, 'LineWidth', obj.tick_thickness);
             
         end
         
-        function PlotLabel(obj, p, l)
+        function PlotLabel(obj, p, t, l)
             
             x = p.position(1);
             y = p.position(2);
-            text(x, y, l, 'FontSize', obj.text_size, 'FontWeight', 'bold', 'HorizontalAlignment', 'Center');
+            text(x, y, t, l, 'FontSize', obj.text_size, 'FontWeight', 'bold', 'HorizontalAlignment', 'Center');
             
         end
         

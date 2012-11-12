@@ -6,10 +6,12 @@ classdef World2D < handle
         time;           % World time
         robots;         % Robot objects handles
         num_robots;     % Number of robots
+        recorder;
         
         default_sensor_range = Inf;
         default_sensor_mean = [0;0;0];
         default_sensor_cov = 0.001*eye(3);
+        default_sensor_type = 'RelativePose'
         
     end
     
@@ -47,10 +49,8 @@ classdef World2D < handle
         
         function InitRobots(obj, N)
             
-            dim_scale = reshape(obj.dims, 1, 1, 2);
-            dim_offset = dim_scale/2;
-            positions = bsxfun(@times, dim_scale, rand(N,1,2));
-            positions = bsxfun(@minus, positions, dim_offset);
+            dim_scale = reshape(obj.dims, 1, 1, 2);            
+            positions = bsxfun(@times, dim_scale, 2*rand(N,1,2) - 1);            
             orientations = 2*pi*rand(N,1);
             
             obj.robots = Robot;
@@ -63,10 +63,12 @@ classdef World2D < handle
                 r.sensor_range = obj.default_sensor_range;
                 r.sensor_mean = obj.default_sensor_mean;
                 r.sensor_covariance = obj.default_sensor_cov;
-                r.sensor_type = 'RelativePose';
+                r.sensor_type = obj.default_sensor_type;
             end
             
             obj.num_robots = N;
+            obj.recorder = Recorder2D(N);
+            obj.recorder.Append(obj.GetPoses);
             
         end
         
@@ -78,6 +80,8 @@ classdef World2D < handle
                 r.ExecuteMovement(obj);
                 
             end
+            
+            obj.recorder.Append(obj.GetPoses);
             
         end
         

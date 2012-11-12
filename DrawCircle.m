@@ -13,4 +13,5 @@ end
 t = linspace(0, 2*pi, n+1);
 x = center(1) + radius*cos(t);
 y = center(2) + radius*sin(t);
-plot(x,y,linespec{:});
+z = center(3)*ones(length(t),1);
+plot3(x,y,z,linespec{:});
