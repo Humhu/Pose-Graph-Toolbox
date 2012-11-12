@@ -1,30 +1,37 @@
-% Container for measurements
+% Relative pose measurement class
+% Noise is 0 centered and Gaussian
 classdef MeasurementRelativePose < Measurement
     
     properties
+        
         displacement;
         rotation = Orientation1D;
         covariance;
         observer_id;
         target_id;
+        observer_time;
+        target_time;
+        
     end
     
     methods
         
-        function obj = MeasurementRelativePose(dis, rot, cov, obs_id, tar_id)
+        function obj = MeasurementRelativePose(obs_p, tar_p, cov)          
             if nargin == 0
                 return
             end
             
-            if(isa(rot, 'double'))
-                rot = Orientation1D(rot);
-            end
+            rel = tar_p - obs_p;            
             
-            obj.displacement = dis;
-            obj.rotation = rot;
+            ori = rel.orientation;
+            noise = mvnrnd(zeros(3,1), cov)';
+            t = double(obs_p.orientation);
+            R = [cos(t), sin(t);
+                -sin(t), cos(t)];
+            
+            obj.displacement = R*rel.position + noise(1:2,1);
+            obj.rotation = ori + noise(3);
             obj.covariance = cov;
-            obj.observer_id = obs_id;
-            obj.target_id = tar_id;
             
         end
         

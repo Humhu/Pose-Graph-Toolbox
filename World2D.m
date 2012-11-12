@@ -49,7 +49,7 @@ classdef World2D < handle
         
         function InitRobots(obj, N)
             
-            dim_scale = reshape(obj.dims, 1, 1, 2);            
+            dim_scale = reshape(obj.dims/2, 1, 1, 2);            
             positions = bsxfun(@times, dim_scale, 2*rand(N,1,2) - 1);            
             orientations = 2*pi*rand(N,1);
             
@@ -85,24 +85,9 @@ classdef World2D < handle
             
         end
         
-        function [relations, ids] = GetRelations(obj)
-            
-            relations = [];
-            ids = [];
-            
-            for i = 1:obj.num_robots
-                
-                [rel_i, id_i] = obj.robots(i).GetRelations(obj);
-                relations = [relations, rel_i];
-                ids = [ids, id_i];
-                
-            end
-            
-        end
-        
         function [measurements] = GetMeasurements(obj)
             
-            measurements = [];
+            measurements = {};
             
             for i = 1:obj.num_robots;
                 
