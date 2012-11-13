@@ -3,6 +3,7 @@ classdef MotionController < handle
    
     properties(Abstract)              
         
+        ownerID;    % ID of agent this controller belongs to
         ref;        % Controller reference
         
     end

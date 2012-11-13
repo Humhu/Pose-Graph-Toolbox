@@ -35,7 +35,7 @@ classdef Plotter2D < handle
             axis(obj.axe, [-obj.dims(1)/2, obj.dims(1)/2, ...
                 -obj.dims(2)/2, obj.dims(2)/2]);
             grid on;
-            axis vis3d;
+            %axis vis3d;
             xlabel('x');
             ylabel('y');
             zlabel('t');
@@ -84,7 +84,7 @@ classdef Plotter2D < handle
             for i = 1:n
                 p = fs.poses(i);
                 color = obj.colors(i,:);
-                obj.PlotPose(p, fs.time, color, obj.robot_size);
+                obj.PlotPose(p, fs.time, color, 1.0);
             end
             for i = 1:n
                 p = fs.poses(i);
@@ -103,9 +103,9 @@ classdef Plotter2D < handle
             for i = 1:n
                 m = fs.measurements{i};
                 if isa(m, 'MeasurementRangeBearing')
-                    obj.PlotRangeBearing(fs.poses, m, fs.time);
+                    obj.PlotRangeBearing(fs.poses, m);
                 elseif isa(m, 'MeasurementRelativePose')
-                    obj.PlotRelativePose(fs.poses, m, fs.time);
+                    obj.PlotRelativePose(fs.poses, m);
                 end
             end
             hold off;
@@ -116,19 +116,19 @@ classdef Plotter2D < handle
     
     methods(Access = private)
         
-        function PlotPose(obj, p, t, c, r)
+        function PlotPose(obj, p, t, c, s)
             
             x = p.position(1);
             y = p.position(2);
             
             % Plot circle
-            DrawCircle([x,y,t], r, obj.circle_points, ...
+            DrawCircle([x,y,t], s*obj.robot_size, obj.circle_points, ...
                 'Color', c, 'LineWidth', obj.robot_thickness);
             
             % Plot orientation tick
             a = double(p.orientation);
-            dx = obj.tick_length*cos(a);
-            dy = obj.tick_length*sin(a);
+            dx = s*obj.tick_length*cos(a);
+            dy = s*obj.tick_length*sin(a);
             DrawLine([x, y, t], [x + dx, y + dy, t], ...
                 'Color', c, 'LineWidth', obj.tick_thickness);
             
@@ -150,43 +150,34 @@ classdef Plotter2D < handle
             
         end
         
-        function PlotRangeBearing(obj, poses, m, t)
+        % TODO: Update for consistency!
+        function PlotRangeBearing(obj, poses, m)
             
             id1 = m.observer_id;
             color = obj.colors(id1,:);
-            p = poses(id1,t);
+            p = poses(id1);
             x = p.position(1);
             y = p.position(2);
             
             dx = m.range*cos(double(p.orientation + m.bearing));
             dy = m.range*sin(double(p.orientation + m.bearing));
-            DrawLine([x, y, t], [x + dx, y + dy, t], ...
+            DrawLine([x, y, m.observer_time], [x + dx, y + dy, m.target_time], ...
                 'Color', color, 'LineWidth', obj.measurement_thickness);
             
         end
         
-        function PlotRelativePose(obj, poses, m, t)
-            
-            %axes(obj.axe);
+        function PlotRelativePose(obj, poses, m)
             
             id1 = m.observer_id;
             id2 = m.target_id;
             color = obj.colors(id2,:);
-            p = poses(id1);
-            x = p.position(1);
-            y = p.position(2);
-            a = double(p.orientation);
+            p = poses(id1);            
+            pEst = m.ToPose(p);
             
-            R = [cos(a), -sin(a);
-                sin(a), cos(a)];
-            d = R*m.displacement;
-            dx = d(1);
-            dy = d(2);
-            DrawLine([x, y, t], [x + dx, y + dy, t], ...
+            DrawLine([p.position; m.observer_time], [pEst.position; m.target_time], ...
                 'Color', color, 'LineWidth', obj.measurement_thickness);
-            
-            pn = Pose2D(reshape([x+dx,y+dy],1,1,2), a + m.rotation);
-            obj.PlotPose(pn, t, color, obj.robot_size/2);
+                        
+            obj.PlotPose(pEst, m.target_time, color, 0.5);
             
         end
         

@@ -3,10 +3,11 @@
 % state changes
 % TODO: Make outputs in robot frame, not global frame?
 % TODO: Move copy method to abstract superclass?
-classdef OrbitController < handle & MotionController
+classdef OrbitMotionController < handle & MotionController
     
     properties
         
+        ownerID;
         ref;
         motionGain;
         
@@ -14,14 +15,14 @@ classdef OrbitController < handle & MotionController
     
     methods
    
-        function [obj] = OrbitController(oc)
+        function [obj] = OrbitMotionController(omc)
             
             if nargin == 0
                 return;
             end
             
-            obj.ref = oc.ref;
-            obj.motionGain = oc.motionGain;
+            obj.ref = omc.ref;
+            obj.motionGain = omc.motionGain;
             
         end
         
@@ -40,7 +41,7 @@ classdef OrbitController < handle & MotionController
         
         function [newObj] = Copy(obj)
            
-            newObj = OrbitController(obj);
+            newObj = OrbitMotionController(obj);
             
         end
         

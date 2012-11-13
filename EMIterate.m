@@ -73,22 +73,14 @@ classdef EMIterate < handle
             sum_data = zeros(3,1,N); % Numerator - sum of weighted data
             for k = 1:num_rels
                 
-                z = obj.meas{k};
-                r = z.displacement;
-                a = double(z.rotation);
+                z = obj.meas{k};                
                 i = z.observer_id;
                 j = z.target_id;
                 c = z.covariance;
                 
                 pi = obj.pose_beliefs(i);
-                pix = pi.position;
-                pit = pi.orientation;
-                
-                t = double(pit);
-                R = [cos(t), -sin(t);
-                    sin(t), cos(t)];
-                pj_est = [pix + R*r;
-                    double(pit + a)];
+                pj = z.ToPose(pi);
+                pj_est = pj.position;
                 
                 w = c^-1;
                 sum_data(:,:,j) = sum_data(:,:,j) + w*pj_est;

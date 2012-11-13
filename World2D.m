@@ -65,7 +65,7 @@ classdef World2D < handle
             for i = 1:N
                
                 r = obj.robots(i);
-                r.Step(obj);
+                r.Step(obj.state);
                 
             end                        
             
@@ -87,9 +87,9 @@ classdef World2D < handle
             
         end
         
-        function [ids] = GetIDs(obj)
+        function [IDs] = GetIDs(obj)
            
-            ids = reshape([obj.robots.id], size(obj.robots));
+            IDs = reshape([obj.robots.ID], size(obj.robots));
             
         end
         
@@ -114,16 +114,11 @@ classdef World2D < handle
         
         function [] = GenerateMeasurements(obj)
            
-            obj.state.measurements = {};
-            
-            N = numel(obj.robots);
-            for i = 1:N
+            obj.state.measurements = {};                        
+            for i = 1:numel(obj.robots)
                 
-                [rel_i] = obj.robots(i).GetMeasurements(obj);
-                if isempty(rel_i)
-                    continue
-                end
-                obj.state.measurements = [obj.state.measurements, rel_i];
+                m = obj.robots(i).GetMeasurements(obj.state);
+                obj.state.measurements = [obj.state.measurements; m];
                 
             end
             

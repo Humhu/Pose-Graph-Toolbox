@@ -18,7 +18,7 @@ classdef WorldState2D
                 return
             end
             
-        end
+        end                
         
     end
     

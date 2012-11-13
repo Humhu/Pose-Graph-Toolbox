@@ -4,6 +4,7 @@ classdef GaussianMotionModel < handle & MotionModel
    
     properties
        
+        ownerID;
         transitionMatrix; %Currently unused?
         mean;
         covariance;

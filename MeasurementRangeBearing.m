@@ -34,17 +34,15 @@ classdef MeasurementRangeBearing < Measurement
             
         end
         
-        function obj = MeasurementRangeBearing(rng, bea, cov, obs_id, tar_id)
-            if nargin == 0
-                return
-            end
-            
-            obj.range = rng;
-            obj.bearing = bea;
-            obj.covariance = cov;
-            obj.observer_id = obs_id;
-            obj.target_id = tar_id;
-        end
+        % TODO: Figure out what to do with non-invertible measurements
+%         function [estPose] = ToPose(obj, basePose)
+%            
+%             a = double(basePose.orientation + obj.bearing);
+%             dx = m.range*cos(a);
+%             dy = m.range*sin(a);                                    
+%             estPose = 
+%             
+%         end
         
         function D = double(obj)
             

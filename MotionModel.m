@@ -3,6 +3,8 @@ classdef MotionModel < handle
    
     properties(Abstract)
         
+        ownerID;        % ID of agent this model belongs to
+        
     end
     
     methods(Abstract)

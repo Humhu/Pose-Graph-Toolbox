@@ -1,36 +1,70 @@
 % Represents a time sequence of poses and measurements
+% Currently fixed sized for better efficiency
+% 
+% Sequences are intended to be generated for known-length runs of a
+% simulator. Sequences can be appended to each other for unknown-length
+% runs.
 classdef Sequence2D < handle
     
     properties
         
-        fullStates; % Full state data
-        times;      % Times corresponding to states - currently unsupported
+        states;     % World state data        
+        i;          % State writing index
         
     end
     
     methods
    
-        function [obj] = Sequence2D()                        
+        function [obj] = Sequence2D(N)                        
             
             if nargin == 0
                 return
             end
             
+            obj.i = 1;
+            obj.states = WorldState2D;
+            obj.states(1,N) = WorldState2D;
+            
         end
         
-        function [] = Append(obj, fs)
+        function [] = Write(obj, fs)                       
+            
+            % Stop writing if full
+            if obj.i > size(obj.states,2)
+                return
+            end
+            obj.states(obj.i) = fs;
+            obj.i = obj.i + 1;
+            
+        end                
+        
+        %TODO Make more efficient?
+        function [newSeq] = Append(obj, seq)
            
-            if ~isa(fs, 'WorldState2D')
+            if isempty(seq)
+                newSeq = obj;
                 return
             end
             
-            obj.fullStates = [obj.fullStates, fs];
+            n = size(obj.states,2);
+            m = size(seq.states,2);
+            newSeq = Sequence2D(n + m);
+            newSeq.states(1:n) = obj.states;
+            newSeq.states(n + 1: n + m) = seq.states;
             
-        end
+        end        
         
-        function [seq] = GetStates(obj, range)
+        function [errs] = Difference(obj, seq)
            
-            seq = obj.fullStates(range);
+            if size(obj.states) ~= size(seq.states)
+                error('Sequences must be of same length and dimension');                
+            end
+            
+            N = size(obj.states,1); 
+            T = size(obj.states,2);
+            
+            dp = [obj.states.poses] - [seq.states.poses];            
+            errs = double(dp);
             
         end
         

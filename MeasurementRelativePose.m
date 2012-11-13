@@ -5,7 +5,7 @@ classdef MeasurementRelativePose < Measurement
     properties
         
         displacement;
-        rotation = Orientation1D;
+        rotation;
         covariance;
         observer_id;
         target_id;
@@ -32,6 +32,21 @@ classdef MeasurementRelativePose < Measurement
             obj.displacement = R*rel.position + noise(1:2,1);
             obj.rotation = ori + noise(3);
             obj.covariance = cov;
+            
+        end
+        
+        function [estPose] = ToPose(obj, basePose)                                                                                  
+            
+            pix = basePose.position;
+            pit = basePose.orientation;
+            
+            t = double(pit);
+            R = [cos(t), -sin(t);
+                sin(t), cos(t)];
+            pj_est = [pix + R*obj.displacement;
+                double(pit + obj.rotation)];
+            pj_est = reshape(pj_est, 1,1,3);
+            estPose = Pose2D(pj_est(1:2), pj_est(3));
             
         end
         
