@@ -1,26 +1,25 @@
-% Represents world and visualization
+% Represents a simulated, bounded planar world populated by robots
+% Time is discrete
 classdef World2D < handle
     
     properties
-        dims;           % World size centered at 0
-        time;           % World time
-        robots;         % Robot objects handles
-        num_robots;     % Number of robots
-        recorder;
         
-        default_sensor_range = Inf;
-        default_sensor_mean = [0;0;0];
-        default_sensor_cov = 0.001*eye(3);
-        default_sensor_type = 'RelativePose'
+        dims;           % World size centered at 0
+        robots;         % Robot objects handles   
+        state           % Current state info
         
     end
     
     methods
         
         function obj = World2D(a)
+            
             if nargin == 0
                 return
             end
+            
+            obj.state = WorldState2D;
+            obj.state.time = 0;
             
             if isa(a, 'double')
                 obj.dims = reshape(a, 2, 1);
@@ -32,72 +31,65 @@ classdef World2D < handle
                 return
             end
             
+            obj.state = a.state;
             obj.dims = a.dims;
-            obj.time = a.time;
-            obj.num_robots = a.num_robots;
-            obj.default_sensor_range = a.default_sensor_range;
-            obj.default_sensor_mean = a.default_sensor_mean;
-            obj.default_sensor_cov = a.default_sensor_cov;
+            N = numel(a.robots);
             obj.robots = Robot;
-            obj.robots(obj.num_robots,1) = Robot;
+            obj.robots(N,1) = Robot;
             
-            for i = 1:obj.num_robots
+            for i = 1:N
                obj.robots(i) = Robot(a.robots(i)); 
             end
             
         end
         
-        function InitRobots(obj, N)
-            
-            dim_scale = reshape(obj.dims/2, 1, 1, 2);            
-            positions = bsxfun(@times, dim_scale, 2*rand(N,1,2) - 1);            
-            orientations = 2*pi*rand(N,1);
-            
-            obj.robots = Robot;
-            obj.robots(N,1) = Robot;
-            
-            for i = 1:N
-                r = obj.robots(i);
-                r.pose = Pose2D(positions(i,:,:),orientations(i));
-                r.id = i;
-                r.sensor_range = obj.default_sensor_range;
-                r.sensor_mean = obj.default_sensor_mean;
-                r.sensor_covariance = obj.default_sensor_cov;
-                r.sensor_type = obj.default_sensor_type;
+        function AddRobots(obj, robs)
+           
+            if ~isa(robs, 'Robot')
+                return
             end
             
-            obj.num_robots = N;
-            obj.recorder = Recorder2D(N);
-            obj.recorder.Append(obj.GetPoses);
+            for i = 1:numel(robs)
+               obj.robots = [obj.robots; robs(i)]; 
+            end
+            
+            obj.state.ids = obj.GetIDs();
+            obj.state.poses = obj.GetPoses();
+            obj.GenerateMeasurements();
             
         end
         
-        function [] = TickTime(obj)
+        function [] = Step(obj)
            
-            for i = 1:obj.num_robots
+            N = numel(obj.robots);
+            for i = 1:N
                
                 r = obj.robots(i);
-                r.ExecuteMovement(obj);
+                r.Step(obj);
                 
-            end
+            end                        
             
-            obj.recorder.Append(obj.GetPoses);
+            obj.state.time = obj.state.time + 1;
+            obj.state.poses = obj.GetPoses();
+            obj.GenerateMeasurements();
+            
+        end
+        
+        function [state] = GetState(obj)
+           
+            state = obj.state;
             
         end
         
         function [measurements] = GetMeasurements(obj)
             
-            measurements = {};
+            measurements = obj.state.measurements;
             
-            for i = 1:obj.num_robots;
-                
-                [rel_i] = obj.robots(i).GetMeasurements(obj);
-                if isempty(rel_i)
-                    continue
-                end
-                measurements = [measurements, rel_i];
-                
-            end
+        end
+        
+        function [ids] = GetIDs(obj)
+           
+            ids = reshape([obj.robots.id], size(obj.robots));
             
         end
         
@@ -114,6 +106,27 @@ classdef World2D < handle
             end
             
             err = double([obj.robots.pose] - [w.robots.pose]);
+        end
+        
+    end
+    
+    methods(Access = private)
+        
+        function [] = GenerateMeasurements(obj)
+           
+            obj.state.measurements = {};
+            
+            N = numel(obj.robots);
+            for i = 1:N
+                
+                [rel_i] = obj.robots(i).GetMeasurements(obj);
+                if isempty(rel_i)
+                    continue
+                end
+                obj.state.measurements = [obj.state.measurements, rel_i];
+                
+            end
+            
         end
         
     end

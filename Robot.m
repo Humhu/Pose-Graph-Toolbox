@@ -2,29 +2,30 @@
 classdef Robot < handle
     
     % To do: Add sensor properties, motion model, etc.
-    % To do: Add controller object to generate movement
+    % To do: Abstract sensor to class
+    % To do: Abstract motion to class
     properties
         
-        pose;
-        id;
+        id;                     % Robot's unique ID
+        pose;                   % Robot's current position
+        beliefs;                % Robot's beliefs about the world state
         
-        sensor_type;
+        motionController;       % Robot's controller
+        motionModel;            % Robot's motion model
+        
+        sensor_type;            % Sensor type
         sensor_range;
         sensor_mean;
-        sensor_covariance;
-        
-        motion_mode = 'Orbit';  % Motion generation
-        motion_mag = 0.1;
-        motion_mean = zeros(3,1);
-        motion_covariance = zeros(3);%0.1*eye(3);
+        sensor_covariance;        
         
     end
     
     methods
         
-        function obj = Robot(a)
-            if nargin == 0
-                return
+        function obj = Robot(a)                        
+            
+            if nargin == 0                                
+                return;
             end
             
             if ~isa(a, 'Robot')
@@ -39,15 +40,16 @@ classdef Robot < handle
             obj.sensor_mean = a.sensor_mean;
             obj.sensor_covariance = a.sensor_covariance;
             
+            obj.motionController = a.motionController.Copy();
+            obj.motionModel = a.motionModel.Copy();
+            
         end
         
-        function [] = ExecuteMovement(obj, w)
+        function [] = Step(obj, w)
            
-            if strcmp(obj.motion_mode, 'Random')
-                obj.MoveRandom(w);
-            elseif strcmp(obj.motion_mode, 'Orbit')
-                obj.MoveOrbit(w);
-            end
+            obj.beliefs = obj.pose; %TODO: Placeholder
+            u = obj.motionController.GenerateOutputs(obj.beliefs);
+            obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);
             
         end
         
@@ -70,7 +72,7 @@ classdef Robot < handle
             p = obj.pose;                        
             measurements = {};
             
-            for i = 1:num_neighbors
+            for i = 1:N
                 
                 r = world.robots(i);
                 if r == obj

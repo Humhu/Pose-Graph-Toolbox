@@ -15,29 +15,30 @@ classdef Plotter2D < handle
         measurement_thickness = 0.4;
         text_size       = 10;
         
-        poses = Pose2D;
-        ref_world;
-        
         name;
+        
+        time = 0;
         
     end
     
     methods
         
-        function obj = Plotter2D(ref)
+        function obj = Plotter2D(size)
             if nargin == 0
                 return
             end
             
-            obj.ref_world = ref;
-            obj.dims = reshape(obj.ref_world.dims, 2, 1);
+            obj.dims = reshape(size, 2, 1);
             obj.fig = figure;
             obj.axe = axes;
             axis(obj.axe, 'equal');
             axis(obj.axe, [-obj.dims(1)/2, obj.dims(1)/2, ...
                 -obj.dims(2)/2, obj.dims(2)/2]);
             grid on;
-            axis square;
+            axis vis3d;
+            xlabel('x');
+            ylabel('y');
+            zlabel('t');
             
         end
         
@@ -48,26 +49,16 @@ classdef Plotter2D < handle
             
         end
         
-        function [] = ReadSource(obj, src)
+        function [] = SetColors(obj, cmap)
             
-            if nargin == 1
-                src = obj.ref_world;
-            end
-            
-            if isa(src, 'World2D')
-                obj.poses = src.GetPoses();
-            elseif isa(src, 'Recorder2D')
-                obj.poses = src.GetPoses();
-            elseif isa(src, 'Pose2D')
-                obj.poses = src;
-            end
-            
-            if numel(obj.poses) ~= size(obj.colors,1)
-                obj.colors = hsv(size(obj.poses,1));
-                %obj.PlotLegend();
+            if numel(cmap) == 1
+                obj.colors = hsv(cmap);
+            else
+                obj.colors = cmap;
             end
             
         end
+        
         
         function [] = ClearPlot(obj)
             
@@ -75,48 +66,46 @@ classdef Plotter2D < handle
             
         end
         
-        function [] = PlotPoses(obj)
+        function [] = PlotState(obj, fs)
+            for i = 1:numel(fs)
+                s = fs(i);
+                obj.PlotPoses(s);
+                obj.PlotMeasurements(s);
+            end
+        end
+        
+        function [] = PlotPoses(obj, fs)
             
             axes(obj.axe);
             
-            n = size(obj.poses,1);
-            t_steps = size(obj.poses,2);
+            n = size(fs.poses,1);
             
             hold on;
             for i = 1:n
-                for t = 1:t_steps
-                    p = obj.poses(i,t);
-                    color = obj.colors(i,:);
-                    obj.PlotPose(p, t, color, obj.robot_size);
-                end
+                p = fs.poses(i);
+                color = obj.colors(i,:);
+                obj.PlotPose(p, fs.time, color, obj.robot_size);
             end
             for i = 1:n
-                for t = 1:t_steps
-                    p = obj.poses(i,t);
-                    obj.PlotLabel(p, t, num2str(i));
-                end
+                p = fs.poses(i);
+                obj.PlotLabel(p, fs.time, num2str(i));
             end
             hold off;
             
         end
         
-        function PlotMeasurements(obj, measurements)
+        function PlotMeasurements(obj, fs)
             
             axes(obj.axe);
             hold on;
             
-            t_steps = size(measurements,2);
-            
-            for t = 1:t_steps
-                m_t = measurements{t};
-                n = numel(m_t);
-                for i = 1:n                    
-                    m = m_t{i};
-                    if isa(m, 'MeasurementRangeBearing')
-                        obj.PlotRangeBearing(m,t);
-                    elseif isa(m, 'MeasurementRelativePose')
-                        obj.PlotRelativePose(m,t);
-                    end
+            n = numel(fs.measurements);
+            for i = 1:n
+                m = fs.measurements{i};
+                if isa(m, 'MeasurementRangeBearing')
+                    obj.PlotRangeBearing(fs.poses, m, fs.time);
+                elseif isa(m, 'MeasurementRelativePose')
+                    obj.PlotRelativePose(fs.poses, m, fs.time);
                 end
             end
             hold off;
@@ -156,16 +145,16 @@ classdef Plotter2D < handle
         
         function PlotLegend(obj)
             
-            n = numel(obj.poses);
+            n = size(obj.colors, 1);
             legend(cellstr(num2str((1:n)')), 'location', 'eastoutside');
             
         end
         
-        function PlotRangeBearing(obj, m, t)
+        function PlotRangeBearing(obj, poses, m, t)
             
             id1 = m.observer_id;
             color = obj.colors(id1,:);
-            p = obj.poses(id1,t);
+            p = poses(id1,t);
             x = p.position(1);
             y = p.position(2);
             
@@ -176,14 +165,14 @@ classdef Plotter2D < handle
             
         end
         
-        function PlotRelativePose(obj, m, t)
+        function PlotRelativePose(obj, poses, m, t)
             
             %axes(obj.axe);
             
             id1 = m.observer_id;
             id2 = m.target_id;
             color = obj.colors(id2,:);
-            p = obj.poses(id1,t);
+            p = poses(id1);
             x = p.position(1);
             y = p.position(2);
             a = double(p.orientation);
