@@ -90,6 +90,7 @@ classdef Simulator2D < handle
             
             obj.em.Initialize(state);
             obj.em_plotter.SetColors(N);
+            obj.EMVisualize();
             
             obj.plotter.SetColors(N);
             obj.plotter.PlotState(state);
@@ -114,6 +115,30 @@ classdef Simulator2D < handle
             end
             
             obj.history = obj.history.Append(localHist);                             
+            
+        end
+        
+        function [] = RunEM(obj, vis)
+           
+            max_iters = 100;
+            tol = 1E-3;
+            
+            for i = 1:max_iters
+                [dMax, dNorm] = obj.em.Iterate();
+                fprintf(['Iteration: ', num2str(i), '\tDelta max: ', num2str(dMax), '\tDelta norm: ', num2str(dNorm), '\n']);
+                if vis
+                    obj.EMVisualize();
+                end
+                if dNorm < tol
+                    break
+                end
+            end
+            
+            errs = obj.em.truth.Difference(obj.em.beliefs);
+            fprintf('Errors (n, t):\n');
+            disp(errs);            
+            
+            obj.EMVisualize();
             
         end
         
