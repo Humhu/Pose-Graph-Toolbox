@@ -1,4 +1,5 @@
 % Visualization output for world
+% TODO: Figure out how to support plotting measurements across different times
 classdef Plotter2D < handle
     
     properties
@@ -7,17 +8,17 @@ classdef Plotter2D < handle
         fig;            % Visualization figure handle
         axe;            % Visualization axes handle
         colors;         % Visualization colors
+        name;           % Figure title
+        history;        % Data being shown        
+        
+        % Parameters
         tick_length     = 0.04;
         tick_thickness  = 2;
         robot_size      = 0.025;
         robot_thickness = 2;
         circle_points   = 8;
         measurement_thickness = 0.4;
-        text_size       = 10;
-        
-        name;
-        
-        time = 0;
+        text_size       = 10;        
         
     end
     
@@ -27,6 +28,8 @@ classdef Plotter2D < handle
             if nargin == 0
                 return
             end
+            
+            obj.history = Sequence2D(100); % TODO: Un-hardcode
             
             obj.dims = reshape(size, 2, 1);
             obj.fig = figure;
@@ -60,52 +63,63 @@ classdef Plotter2D < handle
         end
         
         
-        function [] = ClearPlot(obj)
+        function [] = Clear(obj)
             
-            cla(obj.axe);
+            cla(obj.axe);                        
+            obj.history.Clear();
             
-        end
+        end                
         
-        function [] = PlotState(obj, fs)
-            for i = 1:numel(fs)
-                s = fs(i);
-                obj.PlotPoses(s);
-                obj.PlotMeasurements(s);
+        function [] = PlotSequence(obj, seq)
+            
+            T = seq.GetLength();
+            for t = 1:T
+               obj.PlotState(seq.states(t)); 
             end
+            
         end
         
-        function [] = PlotPoses(obj, fs)
+        function [] = PlotState(obj, state)   
+            
+            obj.history.Write(state);
+            obj.PlotPoses(state);
+            obj.PlotMeasurements(state);
+            
+        end
+        
+        function [] = PlotPoses(obj, state)
             
             axes(obj.axe);
             
-            n = size(fs.poses,1);
+            n = size(state.poses,1);
             
             hold on;
             for i = 1:n
-                p = fs.poses(i);
+                p = state.poses(i);
                 color = obj.colors(i,:);
-                obj.PlotPose(p, fs.time, color, 1.0);
+                obj.PlotPose(p, state.time, color, 1.0);
             end
             for i = 1:n
-                p = fs.poses(i);
-                obj.PlotLabel(p, fs.time, num2str(i));
+                p = state.poses(i);
+                obj.PlotLabel(p, state.time, num2str(i));
             end
             hold off;
             
         end
         
-        function PlotMeasurements(obj, fs)
+        function PlotMeasurements(obj, state)
             
             axes(obj.axe);
             hold on;
             
-            n = numel(fs.measurements);
+            n = numel(state.measurements);
             for i = 1:n
-                m = fs.measurements{i};
+                m = state.measurements{i};
                 if isa(m, 'MeasurementRangeBearing')
-                    obj.PlotRangeBearing(fs.poses, m);
+                    obj.PlotRangeBearing(state, m);
                 elseif isa(m, 'MeasurementRelativePose')
-                    obj.PlotRelativePose(fs.poses, m);
+                    obj.PlotRelativePose(m);
+                    obj.PlotRelativePose(m.ToInverse());
                 end
             end
             hold off;
@@ -151,11 +165,11 @@ classdef Plotter2D < handle
         end
         
         % TODO: Update for consistency!
-        function PlotRangeBearing(obj, poses, m)
+        function PlotRangeBearing(obj, fs, m)
             
             id1 = m.observer_id;
             color = obj.colors(id1,:);
-            p = poses(id1);
+            p = fs.states(m.observer_time).poses(id1);
             x = p.position(1);
             y = p.position(2);
             
@@ -166,12 +180,10 @@ classdef Plotter2D < handle
             
         end
         
-        function PlotRelativePose(obj, poses, m)
+        function PlotRelativePose(obj, m)
             
-            id1 = m.observer_id;
-            id2 = m.target_id;
-            color = obj.colors(id2,:);
-            p = poses(id1);            
+            color = obj.colors(m.target_id,:);
+            p = obj.history.states(m.observer_time).poses(m.observer_id);            
             pEst = m.ToPose(p);
             
             DrawLine([p.position; m.observer_time], [pEst.position; m.target_time], ...

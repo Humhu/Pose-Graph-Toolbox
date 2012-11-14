@@ -1,5 +1,6 @@
 % Relative pose measurement class
 % Noise is 0 centered and Gaussian
+% TODO: Write reverseMeasurement method to generate opposite measurements
 classdef MeasurementRelativePose < Measurement
     
     properties
@@ -16,6 +17,7 @@ classdef MeasurementRelativePose < Measurement
     
     methods
         
+        %TODO: move noise addition to sensor-side?
         function obj = MeasurementRelativePose(obs_p, tar_p, cov)          
             if nargin == 0
                 return
@@ -32,6 +34,19 @@ classdef MeasurementRelativePose < Measurement
             obj.displacement = R*rel.position + noise(1:2,1);
             obj.rotation = ori + noise(3);
             obj.covariance = cov;
+            
+        end
+        
+        function [invM] = ToInverse(obj)
+                      
+           pz = Pose2D(zeros(1,1,2), 0);
+           pe = obj.ToPose(pz);
+           invM = MeasurementRelativePose(pe, pz, zeros(3));
+           invM.covariance = obj.covariance;
+           invM.observer_id = obj.target_id;
+           invM.target_id = obj.observer_id;
+           invM.observer_time = obj.target_time;
+           invM.target_time = obj.observer_time;
             
         end
         

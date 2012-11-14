@@ -3,47 +3,49 @@ classdef EMIterate < handle
     
     properties
         
-        true_plotter;
-        est_plotter;
-        
-        true_world;
-        est_world;
-        
-        step = 0;
-        
-        pose_beliefs = Pose2D;
-        meas;
-        meas_ids;
-        step_magnitude = Inf;
+        beliefs;        % Trajectory beliefs
+        truth;          % Observations and ground truth
         
     end
     
     methods
         
-        function obj = EMIterate(true, est)
+        function obj = EMIterate(N)
             
             if nargin == 0
                 return
             end
             
-            obj.true_world = true;
-            obj.true_plotter = Plotter2D(obj.true_world);
-            obj.true_plotter.ReadSource(obj.true_world);
-            obj.true_plotter.Label('True World');
-            obj.true_plotter.PlotPoses();
-            
-            obj.est_world = est;
-            obj.est_plotter = Plotter2D(obj.est_world);
-            obj.est_plotter.ReadSource(obj.est_world);
-            obj.est_plotter.Label('Estimated World');
-            obj.est_plotter.PlotPoses();
+            obj.beliefs = Sequence2D(N);
+            obj.truth = Sequence2D(N);
             
         end
         
-        function [] = Update(obj)
+        function [] = Initialize(obj, state)
             
-            obj.pose_beliefs = obj.est_world.GetPoses();
-            [obj.meas] = obj.true_world.GetMeasurements();
+            if nargin == 2
+                obj.truth.Clear();
+                obj.truth.Write(state);
+                obj.beliefs.Clear();
+                obj.beliefs.Write(state);
+            end
+            
+            % Else make beliefs random
+            N = obj.truth.GetDimension();
+            T = obj.truth.GetLength();  
+            % TODO: Do!
+            
+        end
+        
+        function [] = Update(obj, state)
+            
+           obj.truth.Write(state);
+           
+           % Use previous state as guess for next one
+           lastBelief = obj.beliefs.states(obj.beliefs.GetLength());
+           lastBelief.time = state.time;     
+           lastBelief.measurements = state.measurements;
+           obj.beliefs.Write(lastBelief); 
             
         end
         
@@ -61,66 +63,77 @@ classdef EMIterate < handle
         
         function [] = Iterate(obj)
             
-            % Calculate errors
-            N = numel(obj.pose_beliefs);
+            N = obj.truth.GetDimension();
+            T = obj.truth.GetLength();                        
             
-            num_rels = numel(obj.meas);
+            anchor = obj.beliefs.states(1).poses(1);
+            prev_seq = obj.beliefs.GetPosesDouble();
             
-            anchor = obj.pose_beliefs(1);
+            sum_info = zeros(3,3,N,T); % Denominator - sum of weights
+            sum_data = zeros(3,1,N,T); % Numerator - sum of weighted data
             
-            % Calculate maximum likelihood errors
-            sum_info = zeros(3,3,N); % Denominator - sum of covariances
-            sum_data = zeros(3,1,N); % Numerator - sum of weighted data
-            for k = 1:num_rels
-                
-                z = obj.meas{k};                
-                i = z.observer_id;
-                j = z.target_id;
-                c = z.covariance;
-                
-                pi = obj.pose_beliefs(i);
-                pj = z.ToPose(pi);
-                pj_est = pj.position;
-                
-                w = c^-1;
-                sum_data(:,:,j) = sum_data(:,:,j) + w*pj_est;
-                sum_info(:,:,j) = sum_info(:,:,j) + w;
+            % Iterate over time steps and measurements
+            for t = 1:T                
+                meas = obj.truth.states(t).measurements;    % Observations recorded at time t                
+                M = numel(meas);                
+                for m = 1:M
+                   
+                    meas_m = meas{m};
+                    obs_t = meas_m.observer_time;
+                    tar_t = meas_m.target_time;
+                                       
+                    obs_p = obj.beliefs.states(obs_t).poses(meas_m.observer_id);
+                    tar_p = meas_m.ToPose(obs_p);    
+                    tar_pD = reshape(double(tar_p), 3, 1);
+                    meas_w = inv(meas_m.covariance);
+                    
+                    sum_info(:,:,meas_m.target_id,tar_t) = ...
+                        sum_info(:,:,meas_m.target_id,tar_t) + meas_w;
+                    sum_data(:,:,meas_m.target_id,tar_t) = ...
+                        sum_data(:,:,meas_m.target_id,tar_t) + meas_w*tar_pD;
+                    
+                    meas_m = meas_m.ToInverse();
+                    obs_t = meas_m.observer_time;
+                    tar_t = meas_m.target_time;
+                                       
+                    obs_p = obj.beliefs.states(obs_t).poses(meas_m.observer_id);
+                    tar_p = meas_m.ToPose(obs_p);    
+                    tar_pD = reshape(double(tar_p), 3, 1);
+                    meas_w = inv(meas_m.covariance);
+                    
+                    sum_info(:,:,meas_m.target_id,tar_t) = ...
+                        sum_info(:,:,meas_m.target_id,tar_t) + meas_w;
+                    sum_data(:,:,meas_m.target_id,tar_t) = ...
+                        sum_data(:,:,meas_m.target_id,tar_t) + meas_w*tar_pD;
+                                            
+                end
                 
             end
             
-            for k = 1:N
+            % Iterate over time steps and robots
+            for t = 1:T
+               for n = 1:N
+                  
+                   data = sum_data(:,:,n,t);
+                   info = sum_info(:,:,n,t);
                 
-                data = sum_data(:,:,k);
-                info = sum_info(:,:,k);
-                
-                p_new = (info^-1)*data;
-                p_new = reshape(p_new, 1, 1, 3);
-                obj.pose_beliefs(k) = Pose2D(p_new(:,:,1:2), p_new(3));
-                
-            end                        
+                   weight = inv(info);
+                   mle_data = reshape(weight*data, 1, 1, 3);
+                   mle_p = Pose2D(mle_data(1:2), mle_data(3));
+                   obj.beliefs.states(t).poses(n) = mle_p;
+                   
+               end
+            end
+            
+            obj.beliefs.states(1).poses(1) = anchor;
+            new_seq = obj.beliefs.GetPosesDouble();
+            diff = abs(new_seq - prev_seq);
+            diff_max = max(diff(:));
+            diff_norm = norm(diff(:));
                         
-            shift = obj.pose_beliefs(1) - anchor;
-            for k = 1:N
-               
-                obj.pose_beliefs(k) = obj.pose_beliefs(k) - shift;
-                
-            end
+            fprintf(['Diff max: ', num2str(diff_max), ', Diff norm: ', num2str(diff_norm), '\n']);
             
-            obj.step = obj.step + 1;           
-            
-        end
-        
-        function [] = Visualize(obj)
-            
-            obj.true_plotter.ClearPlot();
-            obj.true_plotter.ReadSource(obj.true_world);
-            %obj.true_plotter.PlotMeasurements(obj.meas);
-            obj.true_plotter.PlotPoses();            
-            
-            obj.est_plotter.ClearPlot();
-            obj.est_plotter.ReadSource(obj.pose_beliefs);
-            obj.est_plotter.PlotMeasurements(obj.meas);
-            obj.est_plotter.PlotPoses();
+            % TODO: Determine convergence criteria
             
         end
         

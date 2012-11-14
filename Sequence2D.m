@@ -1,5 +1,5 @@
 % Represents a time sequence of poses and measurements
-% Currently fixed sized for better efficiency
+% Currently fixed sized for efficiency
 % 
 % Sequences are intended to be generated for known-length runs of a
 % simulator. Sequences can be appended to each other for unknown-length
@@ -27,6 +27,16 @@ classdef Sequence2D < handle
             
         end
         
+        function [newObj] = Copy(obj)
+            
+            L = obj.GetLength();
+            newObj = Sequence2D(L);
+            newObj.states(1:L) = obj.states(1:L);
+            newObj.i = obj.i;
+            
+        end
+        
+        % Add a state entry to last available slot
         function [] = Write(obj, fs)                       
             
             % Stop writing if full
@@ -37,6 +47,20 @@ classdef Sequence2D < handle
             obj.i = obj.i + 1;
             
         end                
+        
+        function [] = Clear(obj)
+           obj.i = 1; 
+        end
+        
+        % Number of agents recorded
+        function [d] = GetDimension(obj)
+           d = size(obj.states(1).poses, 1); 
+        end
+        
+        % Number of time steps recorded
+        function [l] = GetLength(obj)            
+            l = obj.i - 1;
+        end
         
         %TODO Make more efficient?
         function [newSeq] = Append(obj, seq)
@@ -51,6 +75,7 @@ classdef Sequence2D < handle
             newSeq = Sequence2D(n + m);
             newSeq.states(1:n) = obj.states;
             newSeq.states(n + 1: n + m) = seq.states;
+            newSeq.i = n + m + 1;
             
         end        
         
@@ -65,6 +90,12 @@ classdef Sequence2D < handle
             
             dp = [obj.states.poses] - [seq.states.poses];            
             errs = double(dp);
+            
+        end
+        
+        function [pD] = GetPosesDouble(obj)
+           
+            pD = double([obj.states.poses]);
             
         end
         

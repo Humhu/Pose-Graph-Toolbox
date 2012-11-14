@@ -7,6 +7,9 @@ classdef Simulator2D < handle
         history;     % Records of full state time sequence
         plotter;     % Visualization
         
+        em;
+        em_plotter;
+        
     end
     
     methods
@@ -22,6 +25,9 @@ classdef Simulator2D < handle
             
             obj.world = World2D(world_size); % Initialize world           
             obj.plotter = Plotter2D(world_size); % Initialize visualization            
+            
+            obj.em = EMIterate(100); % TODO: Un-hardcode!
+            obj.em_plotter = Plotter2D(world_size);
             
             if nargin < 2
                 return
@@ -49,12 +55,12 @@ classdef Simulator2D < handle
                 r.RegisterMotionController(mc);
                 
                 mm = GaussianMotionModel();
-                mm.mean = zeros(3,1);
-                mm.covariance = zeros(3);
+                mm.mean = [0;0;0];
+                mm.covariance = 0.001*eye(3);
                 r.RegisterMotionModel(mm);
                 
                 rps = RelativePoseSensor();
-                rps.maxRange = 0.3;
+                rps.maxRange = Inf;
                 rps.mean = [0;0;0];
                 rps.covariance = 0.001*eye(3);                
                 r.RegisterSensor(rps);
@@ -82,6 +88,9 @@ classdef Simulator2D < handle
             obj.history = Sequence2D(1);
             obj.history.Write(state);
             
+            obj.em.Initialize(state);
+            obj.em_plotter.SetColors(N);
+            
             obj.plotter.SetColors(N);
             obj.plotter.PlotState(state);
             
@@ -100,12 +109,21 @@ classdef Simulator2D < handle
                 obj.world.Step();
                 state = obj.world.GetState();                
                 localHist.Write(state);                
-                obj.plotter.PlotState(state);                
+                obj.plotter.PlotState(state);
+                obj.em.Update(state);
             end
             
-            obj.history = obj.history.Append(localHist);
+            obj.history = obj.history.Append(localHist);                             
             
-        end                                
+        end
+        
+        function [] = EMVisualize(obj)
+           
+            belief = obj.em.beliefs;
+            obj.em_plotter.Clear();
+            obj.em_plotter.PlotSequence(belief);
+            
+        end
         
     end
     

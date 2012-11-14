@@ -108,7 +108,9 @@ classdef Robot < handle
             for i = 1:numel(obj.sensors);
                 measurements = [measurements; obj.sensors{i}.GenerateMeasurements(state)];
             end            
-            measurements = [measurements; {obj.odometry}];
+            if ~isempty(obj.odometry)
+                measurements = [measurements; {obj.odometry}];
+            end
             
         end
     end
