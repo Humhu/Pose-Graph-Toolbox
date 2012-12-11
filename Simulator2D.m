@@ -72,13 +72,14 @@ classdef Simulator2D < handle
             end
 
             
-            dim_scale = reshape(obj.world.dims/2, 1, 1, 2);
-            positions = bsxfun(@times, dim_scale, 2*rand(N,1,2) - 1);
+            dim_scale = reshape(obj.world.dims/2, 2, 1);
+            positions = bsxfun(@times, dim_scale, 2*rand(2, N) - 1);
             orientations = 2*pi*rand(N,1);                        
             
             for i = 1:N
                 r = robs(i);
-                r.pose = Pose2D(positions(i,:,:),orientations(i));
+                %r.pose = Pose2D(positions(i,:,:),orientations(i));
+                r.pose = [positions(:,i); orientations(i)];
                 r.SetID(i);
                            
             end                        

@@ -90,7 +90,8 @@ classdef Robot < handle
             u = obj.motionController.GenerateOutputs(obj.beliefs);
             obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);            
             
-            estPose = prevPose + reshape(u, 1, 1, 3);
+            %estPose = prevPose + reshape(u, 1, 1, 3);
+            estPose = prevPose + u;
             
             obj.odometry = MeasurementRelativePose(estPose, prevPose, zeros(3));
             obj.odometry.covariance = obj.motionModel.covariance;
@@ -145,10 +146,10 @@ classdef Robot < handle
             
         end
         
-        function [o] = MoveRandom(obj, w)
+        function [] = MoveRandom(obj, w)
             
             bounds = w.dims/2;
-            p = obj.pose.position;
+            p = obj.pose(1:2);
             if p(1) > bounds(1)
                 p(1) = bounds(1);
             elseif p(1) < -bounds(1)
@@ -159,7 +160,7 @@ classdef Robot < handle
             elseif p(2) < -bounds(2)
                 p(2) = -bounds(2);
             end
-            obj.pose.position = p;
+            obj.pose(1:2) = p;
             
         end
         
