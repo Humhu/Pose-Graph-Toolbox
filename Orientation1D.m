@@ -1,4 +1,5 @@
 % Represents a single angle in range [-pi, pi]
+% TODO: Optimize! The double for loop in the constructor is slow as hell.
 classdef Orientation1D
     
     properties
@@ -7,21 +8,36 @@ classdef Orientation1D
     
     methods
         
+%         function obj = Orientation1D(angle)
+%             if nargin == 0
+%                 return
+%             end
+%             
+%             m = size(angle,1);
+%             n = size(angle,2);
+%             obj(m,n) = Orientation1D;
+%             for i = 1:m
+%                 for j = 1:n
+%                     obj(i,j).angle = angle(i,j);
+%                 end
+%             end
+%         end        
+
         function obj = Orientation1D(angle)
+
             if nargin == 0
                 return
             end
             
-            m = size(angle,1);
-            n = size(angle,2);
-            obj(m,n) = Orientation1D;
-            for i = 1:m
-                for j = 1:n
-                    obj(i,j).angle = angle(i,j);
-                end
+            N = numel(angle);
+            obj(N,1) = Orientation1D;
+            for i = 1:N
+               obj(i).angle = angle(i); 
             end
+            obj = reshape(obj, size(angle));
+            
         end
-        
+
         function obj = set.angle(obj, a)
             obj.angle = wrapToPi(a);
         end

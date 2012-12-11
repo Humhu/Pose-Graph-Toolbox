@@ -17,11 +17,18 @@ classdef Simulator2D < handle
         % Create a simulation manager and simulated world.
         % Takes arguments to set world size and initialize robots
         % optionally.
-        function [obj] = Simulator2D(world_size, num_robots)
+        function [obj] = Simulator2D(world_size, num_robots, seed)
             
             if nargin == 0
                 return
             end
+            
+            if nargin < 3
+               seed =  now;
+            end
+            
+            stream = RandStream('mt19937ar', 'Seed', seed);
+            RandStream.setGlobalStream(stream);
             
             obj.world = World2D(world_size); % Initialize world           
             obj.plotter = Plotter2D(world_size); % Initialize visualization            
@@ -30,11 +37,11 @@ classdef Simulator2D < handle
             obj.em_plotter = Plotter2D(world_size);
             
             if nargin < 2
-                return
+                num_robots = 3;
             end
             
             obj.InitRobots(num_robots);            
-            
+                                    
         end
         
         % Given a number, initialize default robots and adds them to the world
@@ -51,18 +58,18 @@ classdef Simulator2D < handle
                 
                 mc = OrbitMotionController();
                 mc.ref = 0; %TODO: unused
-                mc.motionGain = 0.1;
+                mc.motionGain = 0.01;
                 r.RegisterMotionController(mc);
                 
                 mm = GaussianMotionModel();
                 mm.mean = [0;0;0];
-                mm.covariance = 0.001*eye(3);
+                mm.covariance = (0.01)^2*eye(3);
                 r.RegisterMotionModel(mm);
                 
                 rps = RelativePoseSensor();
-                rps.maxRange = Inf;
+                rps.maxRange = 0.5;
                 rps.mean = [0;0;0];
-                rps.covariance = 0.001*eye(3);                
+                rps.covariance = (0.01)^2*eye(3);                
                 r.RegisterSensor(rps);
                 
             end
@@ -118,7 +125,22 @@ classdef Simulator2D < handle
             
         end
         
-        function [] = RunEM(obj, vis)
+        function [errs] = StepSolve(obj,N)
+            
+            if nargin == 1
+                N = 1;
+            end
+            
+            errs = cell(1,N);
+            
+            for i = 1:N
+               obj.Step();
+               errs{i} = obj.RunEM(false);
+            end
+        
+        end
+            
+        function [errs] = RunEM(obj, vis)
            
             max_iters = 100;
             tol = 1E-3;

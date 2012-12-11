@@ -138,7 +138,7 @@ classdef EMIterate < handle
             new_seq = obj.beliefs.GetPosesDouble();
             diff = abs(new_seq - prev_seq);
             dM = max(diff(:));
-            dN = norm(diff(:));                                                            
+            dN = rms(diff(:));                                                            
             
         end
         
