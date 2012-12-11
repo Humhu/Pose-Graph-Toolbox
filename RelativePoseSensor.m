@@ -37,7 +37,7 @@ classdef RelativePoseSensor < handle & Sensor
             
             N = numel(state.poses);
             % TODO: Add ID search instead of index
-            p = state.poses(obj.ownerID);
+            p = state.poses(:,obj.ownerID);
             measurements = {};
             
             for i = 1:N
@@ -46,9 +46,9 @@ classdef RelativePoseSensor < handle & Sensor
                 if target_id == obj.ownerID
                     continue
                 end
-                target_pose = state.poses(i);
-                rel = target_pose - p;
-                if norm(rel.position) > obj.maxRange
+                target_pose = state.poses(:,i);
+                rel = target_pose(1:2) - p(1:2);
+                if norm(rel) > obj.maxRange
                     continue
                 end
                 
