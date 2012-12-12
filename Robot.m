@@ -7,7 +7,7 @@ classdef Robot < handle
     properties
         
         ID;                     % Robot's unique ID
-        pose;                   % Robot's current position
+        pose;                   % Robot's current position [x; y; theta]
         beliefs;                % Robot's beliefs about the world state
         
         motionController;       % Robot's controller
@@ -90,7 +90,7 @@ classdef Robot < handle
             u = obj.motionController.GenerateOutputs(obj.beliefs);
             obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);            
             
-            estPose = prevPose + reshape(u, 1, 1, 3);
+            estPose = prevPose + u;
             
             obj.odometry = MeasurementRelativePose(estPose, prevPose, zeros(3));
             obj.odometry.covariance = obj.motionModel.covariance;

@@ -95,12 +95,12 @@ classdef Plotter2D < handle
             
             hold on;
             for i = 1:n
-                p = state.poses(i);
+                p = state.poses(:,i);
                 color = obj.colors(i,:);
                 obj.PlotPose(p, state.time, color, 1.0);
             end
             for i = 1:n
-                p = state.poses(i);
+                p = state.poses(:,i);
                 obj.PlotLabel(p, state.time, num2str(i));
             end
             hold off;
@@ -132,15 +132,15 @@ classdef Plotter2D < handle
         
         function PlotPose(obj, p, t, c, s)
             
-            x = p.position(1);
-            y = p.position(2);
+            x = p(1);
+            y = p(2);
             
             % Plot circle
             DrawCircle([x,y,t], s*obj.robot_size, obj.circle_points, ...
                 'Color', c, 'LineWidth', obj.robot_thickness);
             
             % Plot orientation tick
-            a = double(p.orientation);
+            a = p(3);
             dx = s*obj.tick_length*cos(a);
             dy = s*obj.tick_length*sin(a);
             DrawLine([x, y, t], [x + dx, y + dy, t], ...
@@ -150,8 +150,8 @@ classdef Plotter2D < handle
         
         function PlotLabel(obj, p, t, l)
             
-            x = p.position(1);
-            y = p.position(2);
+            x = p(1);
+            y = p(2);
             text(x, y, t, l, 'FontSize', obj.text_size, ...
                 'FontWeight', 'bold', 'HorizontalAlignment', 'Center');
             
@@ -173,8 +173,8 @@ classdef Plotter2D < handle
             x = p.position(1);
             y = p.position(2);
             
-            dx = m.range*cos(double(p.orientation + m.bearing));
-            dy = m.range*sin(double(p.orientation + m.bearing));
+            dx = m.range*cos(wrapToPi(p(3) + m.bearing));
+            dy = m.range*sin(wrapToPi(p(3) + m.bearing));
             DrawLine([x, y, m.observer_time], [x + dx, y + dy, m.target_time], ...
                 'Color', color, 'LineWidth', obj.measurement_thickness);
             
@@ -183,10 +183,10 @@ classdef Plotter2D < handle
         function PlotRelativePose(obj, m)
             
             color = obj.colors(m.target_id,:);
-            p = obj.history.states(m.observer_time).poses(m.observer_id);            
+            p = obj.history.states(m.observer_time).poses(:,m.observer_id);            
             pEst = m.ToPose(p);
             
-            DrawLine([p.position; m.observer_time], [pEst.position; m.target_time], ...
+            DrawLine([p(1:2); m.observer_time], [pEst(1:2); m.target_time], ...
                 'Color', color, 'LineWidth', obj.measurement_thickness);
                         
             obj.PlotPose(pEst, m.target_time, color, 0.5);

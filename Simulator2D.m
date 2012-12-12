@@ -79,13 +79,15 @@ classdef Simulator2D < handle
             end
 
             
-            dim_scale = reshape(obj.world.dims/2, 1, 1, 2);
-            positions = bsxfun(@times, dim_scale, 2*rand(N,1,2) - 1);
-            orientations = 2*pi*rand(N,1);                        
-            
+            dim_scale = obj.world.dims/2;
+            positions = bsxfun(@times, dim_scale, 2*rand(2,N) - 1);
+            orientations = wrapToPi(2*pi*rand(1,N));
+            poses = [positions;
+                    orientations];
             for i = 1:N
                 r = robs(i);
-                r.pose = Pose2D(positions(i,:,:),orientations(i));
+                %r.pose = Pose2D(positions(i,:,:),orientations(i));
+                r.pose = poses(:,i);
                 r.SetID(i);
                            
             end                        
@@ -117,7 +119,7 @@ classdef Simulator2D < handle
                 obj.world.Step();
                 state = obj.world.GetState();                
                 localHist.Write(state);                
-                obj.plotter.PlotState(state);
+                %obj.plotter.PlotState(state);
                 obj.em.Update(state);
             end
             
@@ -160,7 +162,7 @@ classdef Simulator2D < handle
             fprintf('Errors (n, t):\n');
             disp(errs);            
             
-            obj.EMVisualize();
+            %obj.EMVisualize();
             
         end
         

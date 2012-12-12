@@ -23,23 +23,28 @@ classdef MeasurementRelativePose < Measurement
                 return
             end
             
-            rel = tar_p - obs_p;            
+            % Find relative position
+            rel = tar_p - obs_p;                        
+            pos = rel(1:2);
+            ori = wrapToPi(rel(3));
             
-            ori = rel.orientation;
+            % Add noise and rotate into observer frame
             noise = mvnrnd(zeros(3,1), cov)';
-            t = double(obs_p.orientation);
+            t = obs_p(3);
             R = [cos(t), sin(t);
                 -sin(t), cos(t)];
             
-            obj.displacement = R*rel.position + noise(1:2,1);
+            obj.displacement = R*pos + noise(1:2,1);
             obj.rotation = ori + noise(3);
             obj.covariance = cov;
             
         end
         
+        % Reverses measurement
         function [invM] = ToInverse(obj)
                       
-           pz = Pose2D(zeros(1,1,2), 0);
+           %pz = Pose2D(zeros(1,1,2), 0);
+           pz = zeros(3,1);
            pe = obj.ToPose(pz);
            invM = MeasurementRelativePose(pe, pz, zeros(3));
            invM.covariance = obj.covariance;
@@ -52,22 +57,23 @@ classdef MeasurementRelativePose < Measurement
         
         function [estPose] = ToPose(obj, basePose)                                                                                  
             
-            pix = basePose.position;
-            pit = basePose.orientation;
+            pix = basePose(1:2);
+            pit = basePose(3);
             
-            t = double(pit);
+            t = pit;
             R = [cos(t), -sin(t);
                 sin(t), cos(t)];
             pj_est = [pix + R*obj.displacement;
-                double(pit + obj.rotation)];
-            pj_est = reshape(pj_est, 1,1,3);
-            estPose = Pose2D(pj_est(1:2), pj_est(3));
+                wrapToPi(pit + obj.rotation)];
+            %pj_est = reshape(pj_est, 1,1,3);
+            %estPose = Pose2D(pj_est(1:2), pj_est(3));
+            estPose = pj_est;
             
         end
         
         function D = double(obj)
             
-            D = [obj.displacement; double(obj.rotation)];
+            D = [obj.displacement; obj.rotation];
             
         end
         

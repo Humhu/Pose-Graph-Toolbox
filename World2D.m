@@ -95,7 +95,7 @@ classdef World2D < handle
         
         function [poses] = GetPoses(obj)
             
-            poses = reshape([obj.robots.pose], size(obj.robots));
+            poses = reshape([obj.robots.pose], 3, numel(obj.robots));
             
         end
        

@@ -29,12 +29,12 @@ classdef OrbitMotionController < handle & MotionController
         % TODO: For now, beliefs is robot pose. Needs to be updated to be more general!
         function [u] = GenerateOutputs(obj, beliefs)
            
-            radius = norm(beliefs.position);
+            radius = norm(beliefs(1:2));
             da = obj.motionGain/radius;
             R = [cos(da), -sin(da);
                 sin(da), cos(da)];       
             
-            movement = (R - eye(2))*beliefs.position;            
+            movement = (R - eye(2))*beliefs(1:2);            
             u = [movement; da];
             
         end

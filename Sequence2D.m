@@ -54,7 +54,7 @@ classdef Sequence2D < handle
         
         % Number of agents recorded
         function [d] = GetDimension(obj)
-           d = size(obj.states(1).poses, 1); 
+           d = size(obj.states(1).poses, 2); 
         end
         
         % Number of time steps recorded

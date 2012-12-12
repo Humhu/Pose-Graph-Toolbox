@@ -35,9 +35,9 @@ classdef RelativePoseSensor < handle & Sensor
         % TODO: Vectorize?
         function [measurements] = GenerateMeasurements(obj, state)
             
-            N = numel(state.poses);
+            N = size(state.poses, 2);
             % TODO: Add ID search instead of index
-            p = state.poses(obj.ownerID);
+            p = state.poses(:, obj.ownerID);
             measurements = {};
             
             for i = 1:N
@@ -46,9 +46,10 @@ classdef RelativePoseSensor < handle & Sensor
                 if target_id == obj.ownerID
                     continue
                 end
-                target_pose = state.poses(i);
+                target_pose = state.poses(:, i);
                 rel = target_pose - p;
-                if norm(rel.position) > obj.maxRange
+                rel(3) = wrapToPi(rel(3));
+                if norm(rel(1:2)) > obj.maxRange
                     continue
                 end
                 
