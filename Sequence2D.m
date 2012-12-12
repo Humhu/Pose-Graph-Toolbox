@@ -88,14 +88,16 @@ classdef Sequence2D < handle
             N = size(obj.states,1); 
             T = size(obj.states,2);
             
-            dp = [obj.states.poses] - [seq.states.poses];            
+            dp = obj.GetPosesDouble() - seq.GetPosesDouble();
+            dp(3,:) = wrapToPi(dp(3,:));
             errs = double(dp);
             
         end
         
         function [pD] = GetPosesDouble(obj)
            
-            pD = double([obj.states.poses]);
+            valid_states = obj.states(1:obj.i - 1);
+            pD = [valid_states.poses];
             
         end
         
