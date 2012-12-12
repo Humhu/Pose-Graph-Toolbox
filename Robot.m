@@ -91,6 +91,7 @@ classdef Robot < handle
             obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);            
             
             estPose = prevPose + u;
+            estPose(3) = wrapToPi(estPose(3));
             
             obj.odometry = MeasurementRelativePose(estPose, prevPose, zeros(3));
             obj.odometry.covariance = obj.motionModel.covariance;

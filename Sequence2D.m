@@ -94,10 +94,16 @@ classdef Sequence2D < handle
             
         end
         
+        % TODO: Make it 3*T x N?
         function [pD] = GetPosesDouble(obj)
            
             valid_states = obj.states(1:obj.i - 1);
-            pD = [valid_states.poses];
+            N = obj.GetDimension();
+            T = obj.GetLength();
+            pD = reshape([valid_states.poses], 3, N, T);
+            pD = permute(pD, [2,1,3]);
+            pD = reshape(pD, N, 3*T);
+            pD = permute(pD, [2,1]);
             
         end
         

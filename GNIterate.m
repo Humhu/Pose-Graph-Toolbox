@@ -3,63 +3,170 @@ classdef GNIterate < handle
     
     properties
         
-        true_plotter = Plotter2D;
-        est_plotter = Plotter2D;
-        true_world = World2D;
-        est_world = World2D;
-        
-        step = 0;
-        
-        pose_beliefs = Pose2D;
-        meas;
-        step_magnitude = Inf;
+        beliefs;
+        truth;
         
     end
     
     methods
         
-        function obj = GNIterate(true, est)
+        function obj = GNIterate(N)
             
             if nargin == 0
                 return
             end
             
-            obj.true_world = true;            
-            obj.true_plotter = Plotter2D(obj.true_world.dims);
-            obj.true_plotter.ReadSource(obj.true_world);
-            obj.true_plotter.Label('True World');
-            obj.true_plotter.PlotPoses();
-            
-            obj.est_world = est;
-            obj.est_plotter = Plotter2D(obj.est_world.dims);
-            obj.est_plotter.ReadSource(obj.est_world);
-            obj.est_plotter.Label('Estimated World');
-            obj.est_plotter.PlotPoses();
+            obj.beliefs = Sequence2D(N);
+            obj.truth = Sequence2D(N);
             
         end
         
-        function [] = Update(obj)
-           
-            obj.pose_beliefs = obj.est_world.GetPoses();
-            [obj.meas] = obj.true_world.GetMeasurements();
+        % TODO: Split truth/beliefs initialization
+        function [] = Initialize(obj, state)
             
-        end                    
+            if nargin == 2
+                obj.truth.Clear();
+                obj.truth.Write(state);
+                obj.beliefs.Clear();
+                obj.beliefs.Write(state);
+            end
+            
+            % Else make beliefs random
+            N = obj.truth.GetDimension();
+            T = obj.truth.GetLength();
+            % TODO: Do!!
+            
+        end
+        
+        function [] = Update(obj, state)
+            
+            obj.truth.Write(state);
+            
+            % Use previous state as guess for next one
+            lastBelief = obj.beliefs.states(obj.beliefs.GetLength());
+            lastBelief.time = state.time;
+            lastBelief.measurements = state.measurements;
+            obj.beliefs.Write(lastBelief);
+            
+        end
         
         function [] = Solve(obj, tol, max_iters)
-           
-            while true
-               
-                if obj.step_magnitude < tol || obj.step > max_iters
+            
+            for i = 1:max_iters
+                [dMax, dNorm] = obj.Iterate();
+                fprintf(['Iteration: ', num2str(i), '\tDelta max: ', num2str(dMax), '\tDelta norm: ', num2str(dNorm), '\n']);
+                if dNorm < tol
                     break
                 end
-                
-                obj.Iterate();
-                
             end
             
         end
         
-        function [] = Iterate(obj)                       
+        % Relative Pose Iteration
+        function [dM, dN] = Iterate(obj)
+            
+            N = obj.beliefs.GetDimension();
+            T = obj.beliefs.GetLength();
+            
+            anchor = obj.beliefs.states(1).poses(:,1);
+            prev_seq = obj.beliefs.GetPosesDouble();
+            
+            % System Jacobian matrix
+            H = zeros(3*N*T, 3*N*T);
+            b = zeros(3*N*T, 1);
+            
+            for t = 1:T
+                % TODO: Move measurements to beliefs?
+                % TODO: Support non-ordered IDs w/ index mapping
+                meas_t = obj.truth.states(t).measurements;
+                M = numel(meas_t);
+                for i = 1:M
+                    m = meas_t{i};
+                    obs_t = m.observer_time;
+                    tar_t = m.target_time;
+                    obs_id = m.observer_id;
+                    tar_id = m.target_id;
+                    
+                    obs_p = obj.beliefs.states(obs_t).poses(:, obs_id);
+                    tar_p = obj.beliefs.states(tar_t).poses(:, tar_id);
+                    
+                    ca1 = cos(obs_p(3));
+                    sa1 = sin(obs_p(3));
+                    
+                    R = [ca1, sa1;
+                        -sa1, ca1];
+                    dR = [-sa1, ca1;
+                        -ca1, -sa1];
+                    dX = tar_p(1:2) - obs_p(1:2);
+                    dA = tar_p(3) - obs_p(3);
+                    z = [m.displacement; m.rotation];
+                    info = inv(m.covariance);
+                    
+                    % Manifold difference or not?
+                    e = [R*dX; dA] - z;
+                    e(3) = wrapToPi(e(3));
+                    
+                    
+                    J_obs = [-R,            dR*dX;
+                             zeros(1,2),   -1];
+                    J_tar = [R,          zeros(2,1);
+                             zeros(1,2), 1];
+                    J = [J_obs, J_tar];
+                    Hij = J'*info*J;
+                    bij = e'*info*J;
+                    
+                    obs_istart = 3*N*(obs_t - 1) + 3*(obs_id-1) + 1;
+                    tar_istart = 3*N*(tar_t - 1) + 3*(tar_id-1) + 1;
+                    inds = [obs_istart:obs_istart + 2, tar_istart:tar_istart + 2];                    
+                    H(inds,inds) = H(inds, inds) + Hij;
+                    b(inds) = b(inds) + bij';
+                    
+                end
+            end
+            
+            J0 = eye(3);
+            info = 1E6*eye(3);
+            e0 = zeros(3,1);
+            H(1:3,1:3) = H(1:3,1:3) + J0'*info*J0;
+            b(1:3) = b(1:3) + e0;
+            
+            dX = H\-b;
+            
+            for t = 1:T
+                for n = 1:N
+                    pos = obj.beliefs.states(t).poses(:,n);
+                    inds = 3*N*(t - 1) + 3*(n - 1)  + 1;
+                    pos = pos + dX(inds:inds + 2);
+                    pos(3) = wrapToPi(pos(3));
+                    obj.beliefs.states(t).poses(:,n) = pos;
+                end
+            end
+            
+            % Rotate so that anchor is stationary
+            at = obj.beliefs.states(1).poses(:,1);
+            RT = anchor - at;
+            da = wrapToPi(RT(3));
+            Rc = [cos(da), sin(da);
+                  -sin(da), cos(da)];
+            trans = RT(1:2);
+            d = obj.beliefs.GetPosesDouble();
+            for t = 1:T
+                p = d(3*t-2:3*t-1,:);
+                p = bsxfun(@plus, Rc*bsxfun(@minus, p, at(1:2)), at(1:2));
+                p = bsxfun(@plus, p, trans);
+                a = wrapToPi(d(3*t,:) + da);
+                obj.beliefs.states(t).poses = [p; a];                
+            end
+            
+            diff = abs(obj.beliefs.GetPosesDouble() - prev_seq);
+            dM = max(diff(:));
+            dN = rms(diff(:));
+            
+        end
+        
+        % Range-Bearing Iteration
+        % TODO: Update to be consistent with Sequence2Ds
+        function [dM, dN] = IterateRB(obj)
             
             % Calculate errors
             N = numel(obj.pose_beliefs);
@@ -73,7 +180,7 @@ classdef GNIterate < handle
                 r = z.range;
                 a = z.bearing;
                 i = z.observer_id;
-                j = z.target_id;                                
+                j = z.target_id;
                 
                 pi = obj.pose_beliefs(i);
                 pix = pi.position(1);
@@ -82,7 +189,7 @@ classdef GNIterate < handle
                 pj = obj.pose_beliefs(j);
                 pjx = pj.position(1);
                 pjy = pj.position(2);
-
+                
                 ex = pjx - pix - r*cos(double(a + pit));
                 ey = pjy - piy - r*sin(double(a + pit));
                 
@@ -101,13 +208,13 @@ classdef GNIterate < handle
                 r = z.range;
                 a = z.bearing;
                 i = z.observer_id;
-                j = z.target_id; 
+                j = z.target_id;
                 
                 Jij = zeros(2, 3*N);
                 
                 pi = obj.pose_beliefs(i);
                 ti = pi.orientation;
-
+                
                 info = obj.meas{i}.covariance^-1;
                 
                 dt = [  r*sin(double(ti + a));
@@ -142,17 +249,7 @@ classdef GNIterate < handle
             
         end
         
-        function [] = Visualize(obj)
-            
-            obj.true_plotter.ReadSource(obj.true_world);
-            %obj.true_plotter.PlotMeasurements(obj.meas);
-            obj.true_plotter.PlotPoses();            
-            
-            obj.est_plotter.ReadSource(obj.pose_beliefs);           
-            obj.est_plotter.PlotMeasurements(obj.meas);
-            obj.est_plotter.PlotPoses();            
-            
-        end
+        
         
     end
     

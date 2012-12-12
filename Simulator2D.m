@@ -33,7 +33,8 @@ classdef Simulator2D < handle
             obj.world = World2D(world_size); % Initialize world           
             obj.plotter = Plotter2D(world_size); % Initialize visualization            
             
-            obj.em = EMIterate(100); % TODO: Un-hardcode!
+            %obj.em = EMIterate(100); % TODO: Un-hardcode!
+            obj.em = GNIterate(100);
             obj.em_plotter = Plotter2D(world_size);
             
             if nargin < 2
@@ -58,7 +59,7 @@ classdef Simulator2D < handle
                 
                 mc = OrbitMotionController();
                 mc.ref = 0; %TODO: unused
-                mc.motionGain = 0.01;
+                mc.motionGain = 0.1;
                 r.RegisterMotionController(mc);
                 
                 mm = GaussianMotionModel();
@@ -119,7 +120,7 @@ classdef Simulator2D < handle
                 obj.world.Step();
                 state = obj.world.GetState();                
                 localHist.Write(state);                
-                %obj.plotter.PlotState(state);
+                obj.plotter.PlotState(state);
                 obj.em.Update(state);
             end
             
@@ -156,13 +157,14 @@ classdef Simulator2D < handle
                 if dNorm < tol
                     break
                 end
+                
             end
             
             errs = obj.em.truth.Difference(obj.em.beliefs);
             fprintf('Errors (n, t):\n');
             disp(errs);            
             
-            %obj.EMVisualize();
+            obj.EMVisualize();
             
         end
         

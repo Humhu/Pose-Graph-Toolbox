@@ -91,7 +91,7 @@ classdef Plotter2D < handle
             
             axes(obj.axe);
             
-            n = size(state.poses,1);
+            n = size(state.poses, 2);
             
             hold on;
             for i = 1:n
