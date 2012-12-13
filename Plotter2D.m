@@ -9,7 +9,7 @@ classdef Plotter2D < handle
         axe;            % Visualization axes handle
         colors;         % Visualization colors
         name;           % Figure title
-        history;        % Data being shown        
+        history;        % Data being shown
         
         % Parameters
         tick_length     = 0.04;
@@ -17,8 +17,10 @@ classdef Plotter2D < handle
         robot_size      = 0.025;
         robot_thickness = 2;
         circle_points   = 8;
+        ellipse_points = 16;
+        ellipse_thickness = 0.4;
         measurement_thickness = 0.4;
-        text_size       = 10;        
+        text_size       = 10;
         
     end
     
@@ -65,25 +67,25 @@ classdef Plotter2D < handle
         
         function [] = Clear(obj)
             
-            cla(obj.axe);                        
+            cla(obj.axe);
             obj.history.Clear();
             
-        end                
+        end
         
         function [] = PlotSequence(obj, seq)
             
             T = seq.GetLength();
             for t = 1:T
-               obj.PlotState(seq.states(t)); 
+                obj.PlotState(seq.states(t));
             end
             
         end
         
-        function [] = PlotState(obj, state)   
+        function [] = PlotState(obj, state)
             
             obj.history.Write(state);
-            obj.PlotPoses(state);
             obj.PlotMeasurements(state);
+            obj.PlotPoses(state);
             
         end
         
@@ -121,6 +123,30 @@ classdef Plotter2D < handle
                     obj.PlotRelativePose(m);
                     obj.PlotRelativePose(m.ToInverse());
                 end
+            end
+            hold off;
+            
+        end
+        
+        function [] = PlotSequenceCovariances(obj, seq, cov)
+            
+            T = seq.GetLength();
+            for t = 1:T
+                obj.PlotPoseCovariances(seq.states(t), cov(t,:));
+            end
+            
+        end
+        
+        function PlotPoseCovariances(obj, state, cov)
+            
+            axes(obj.axe);
+            
+            n = size(state.poses, 2);
+            
+            hold on;
+            for i = 1:n
+                p = state.poses(:,i);
+                obj.PlotCovEllipse(p, state.time, cov{i});
             end
             hold off;
             
@@ -164,6 +190,20 @@ classdef Plotter2D < handle
             
         end
         
+        function PlotCovEllipse(obj, p, t, cov)                      
+            
+            cov = cov(1:2,1:2);
+            a = linspace(0, 2*pi, obj.ellipse_points);
+            c = [cos(a); sin(a)];
+            [V, D] = eig(cov);
+            D = 3*sqrt(D);
+            c = V*D*c;
+            c = bsxfun(@plus, c, p(1:2));
+            c = [c; t*ones(1, obj.ellipse_points)];
+            plot3(c(1,:), c(2,:), c(3,:), '-b', 'LineWidth', obj.ellipse_thickness);
+            
+        end
+        
         % TODO: Update for consistency!
         function PlotRangeBearing(obj, fs, m)
             
@@ -183,12 +223,14 @@ classdef Plotter2D < handle
         function PlotRelativePose(obj, m)
             
             color = obj.colors(m.target_id,:);
-            p = obj.history.states(m.observer_time).poses(:,m.observer_id);            
+            p = obj.history.states(m.observer_time).poses(:,m.observer_id);
             pEst = m.ToPose(p);
             
+            thickness = obj.measurement_thickness;
+            %thickness = norm(inv(m.covariance))*1E-5;
             DrawLine([p(1:2); m.observer_time], [pEst(1:2); m.target_time], ...
-                'Color', color, 'LineWidth', obj.measurement_thickness);
-                        
+                'Color', color, 'LineWidth', thickness);
+            
             obj.PlotPose(pEst, m.target_time, color, 0.5);
             
         end

@@ -5,6 +5,7 @@ classdef GNIterate < handle
         
         beliefs;
         truth;
+        covariance;
         
     end
     
@@ -18,6 +19,7 @@ classdef GNIterate < handle
             
             obj.beliefs = Sequence2D(N);
             obj.truth = Sequence2D(N);
+            obj.covariance = {};
             
         end
         
@@ -124,6 +126,7 @@ classdef GNIterate < handle
                 end
             end
             
+            % Anchor robot 1 at t0 with fake reading
             J0 = eye(3);
             info = 1E6*eye(3);
             e0 = zeros(3,1);
@@ -143,20 +146,27 @@ classdef GNIterate < handle
             end
             
             % Rotate so that anchor is stationary
-            at = obj.beliefs.states(1).poses(:,1);
-            RT = anchor - at;
-            da = wrapToPi(RT(3));
-            Rc = [cos(da), sin(da);
-                  -sin(da), cos(da)];
-            trans = RT(1:2);
-            d = obj.beliefs.GetPosesDouble();
-            for t = 1:T
-                p = d(3*t-2:3*t-1,:);
-                p = bsxfun(@plus, Rc*bsxfun(@minus, p, at(1:2)), at(1:2));
-                p = bsxfun(@plus, p, trans);
-                a = wrapToPi(d(3*t,:) + da);
-                obj.beliefs.states(t).poses = [p; a];                
-            end
+%             at = obj.beliefs.states(1).poses(:,1);
+%             RT = anchor - at;
+%             da = wrapToPi(RT(3));
+%             Rc = [cos(da), sin(da);
+%                   -sin(da), cos(da)];
+%             trans = RT(1:2);
+%             d = obj.beliefs.GetPosesDouble();
+%             for t = 1:T
+%                 p = d(3*t-2:3*t-1,:);
+%                 p = bsxfun(@plus, Rc*bsxfun(@minus, p, at(1:2)), at(1:2));
+%                 p = bsxfun(@plus, p, trans);
+%                 a = wrapToPi(d(3*t,:) + da);
+%                 obj.beliefs.states(t).poses = [p; a];                
+%             end
+            
+            % Store covariances
+            allcovs = mat2cell(inv(H), 3*ones(N*T,1), 3*ones(N*T,1));
+            locovs = cell(N, T);
+            ci = sub2ind([N*T, N*T], 1:N*T, 1:N*T);
+            locovs(1:N*T) = allcovs(ci);
+            obj.covariance = locovs';
             
             diff = abs(obj.beliefs.GetPosesDouble() - prev_seq);
             dM = max(diff(:));

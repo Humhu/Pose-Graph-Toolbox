@@ -89,7 +89,7 @@ classdef Sequence2D < handle
             T = size(obj.states,2);
             
             dp = obj.GetPosesDouble() - seq.GetPosesDouble();
-            dp(3,:) = wrapToPi(dp(3,:));
+            dp(3:3:end,:) = wrapToPi(dp(3:3:end,:));
             errs = double(dp);
             
         end

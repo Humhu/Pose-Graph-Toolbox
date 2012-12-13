@@ -99,6 +99,12 @@ classdef World2D < handle
             
         end
        
+        function [N] = GetNumRobots(obj)
+           
+            N = numel(obj.robots);
+            
+        end
+        
         function [err] = GetErrors(obj, w)
             
             if ~isa(w, 'World2D')

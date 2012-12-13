@@ -38,7 +38,7 @@ classdef Simulator2D < handle
             obj.em_plotter = Plotter2D(world_size);
             
             if nargin < 2
-                num_robots = 3;
+                return;
             end
             
             obj.InitRobots(num_robots);            
@@ -84,12 +84,15 @@ classdef Simulator2D < handle
             positions = bsxfun(@times, dim_scale, 2*rand(2,N) - 1);
             orientations = wrapToPi(2*pi*rand(1,N));
             poses = [positions;
-                    orientations];
+                    orientations]; 
+            id = obj.world.GetNumRobots() + 1;
             for i = 1:N
+                
                 r = robs(i);
                 %r.pose = Pose2D(positions(i,:,:),orientations(i));
                 r.pose = poses(:,i);
-                r.SetID(i);
+                r.SetID(id);
+                id = id + 1;
                            
             end                        
             obj.world.AddRobots(robs);
@@ -99,10 +102,11 @@ classdef Simulator2D < handle
             obj.history.Write(state);
             
             obj.em.Initialize(state);
-            obj.em_plotter.SetColors(N);
+            obj.em_plotter.SetColors(obj.world.GetNumRobots());
             obj.EMVisualize();
             
-            obj.plotter.SetColors(N);
+            obj.plotter.Clear();
+            obj.plotter.SetColors(obj.world.GetNumRobots());
             obj.plotter.PlotState(state);
             
         end
@@ -172,7 +176,10 @@ classdef Simulator2D < handle
            
             belief = obj.em.beliefs;
             obj.em_plotter.Clear();
-            obj.em_plotter.PlotSequence(belief);
+            %obj.em_plotter.PlotSequence(belief);
+            if ~isempty(obj.em.covariance)
+                obj.em_plotter.PlotSequenceCovariances(belief, obj.em.covariance);
+            end
             
         end
         
