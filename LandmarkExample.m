@@ -1,5 +1,5 @@
 % Generates a world with stationary landmarks and a single robot
-seed = 10;
+seed = 25;
 
 % Initialize example landmark
 l = Robot();
@@ -9,7 +9,7 @@ l.RegisterMotionController(lmc);
 
 lmm = GaussianMotionModel();
 lmm.mean = [0;0;0];
-lmm.covariance = 1E-12*eye(3); % Can't use 0 covariance because it blows up
+lmm.covariance = 1E-16*eye(3); % Can't use 0 covariance because it blows up
 l.RegisterMotionModel(lmm);
 
 % Initialize example robot
@@ -22,13 +22,18 @@ r.RegisterMotionController(mc);
 
 mm = GaussianMotionModel();
 mm.mean = [0;0;0];
-mm.covariance = (0.01)^2*eye(3);
+%mm.covariance = (0.02)^2*eye(3);
+mm.covariance = [0.02.^2,    0,      0;
+                 0,         0.02^2, 0;
+                 0,         0,      0.04^2];
 r.RegisterMotionModel(mm);
 
 rps = RelativePoseSensor();
 rps.maxRange = 0.5;
 rps.mean = [0;0;0];
-rps.covariance = (0.01)^2*eye(3);
+rps.covariance = [0.01^2,   0,      0;
+                  0,        0.01^2, 0;
+                  0,        0,      0.04^2];
 r.RegisterSensor(rps);
 
 % Seed random number generator
@@ -37,5 +42,5 @@ RandStream.setGlobalStream(stream);
 
 % Start simulation
 sim = Simulator2D([1,1]);
-sim.InitRobots(3, l);
-sim.InitRobots(1, r);
+sim.InitRobots(1, l);
+sim.InitRobots(3, r);

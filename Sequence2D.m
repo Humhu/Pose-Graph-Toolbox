@@ -36,6 +36,15 @@ classdef Sequence2D < handle
             
         end
         
+        function [newObj] = Subset(obj, inds)
+           
+            s = obj.states(inds);
+            newObj = Sequence2D(numel(s));
+            newObj.states = s;
+            newObj.i = numel(s) + 1;
+            
+        end
+        
         % Add a state entry to last available slot
         function [] = Write(obj, fs)                       
             
@@ -84,9 +93,6 @@ classdef Sequence2D < handle
             if size(obj.states) ~= size(seq.states)
                 error('Sequences must be of same length and dimension');                
             end
-            
-            N = size(obj.states,1); 
-            T = size(obj.states,2);
             
             dp = obj.GetPosesDouble() - seq.GetPosesDouble();
             dp(3:3:end,:) = wrapToPi(dp(3:3:end,:));

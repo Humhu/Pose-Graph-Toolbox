@@ -22,6 +22,8 @@ classdef Plotter2D < handle
         measurement_thickness = 0.4;
         text_size       = 10;
         
+        time_z_scale    = 0.1 % Conversion from time to z height
+        
     end
     
     methods
@@ -39,8 +41,8 @@ classdef Plotter2D < handle
             axis(obj.axe, 'equal');
             axis(obj.axe, [-obj.dims(1)/2, obj.dims(1)/2, ...
                 -obj.dims(2)/2, obj.dims(2)/2]);
-            grid on;
-            %axis vis3d;
+            grid off;
+            axis vis3d;
             xlabel('x');
             ylabel('y');
             zlabel('t');
@@ -121,18 +123,19 @@ classdef Plotter2D < handle
                     obj.PlotRangeBearing(state, m);
                 elseif isa(m, 'MeasurementRelativePose')
                     obj.PlotRelativePose(m);
-                    obj.PlotRelativePose(m.ToInverse());
+                    %obj.PlotRelativePose(m.ToInverse());
                 end
             end
             hold off;
             
         end
         
-        function [] = PlotSequenceCovariances(obj, seq, cov)
+        function [] = PlotSequenceCovariances(obj, truth, belief, cov)
             
-            T = seq.GetLength();
+            T = belief.GetLength();
             for t = 1:T
-                obj.PlotPoseCovariances(seq.states(t), cov(t,:));
+                obj.PlotMeasurements(belief.states(t));
+                obj.PlotPoseCovariances(belief.states(t), cov(t,:));
             end
             
         end
@@ -160,6 +163,7 @@ classdef Plotter2D < handle
             
             x = p(1);
             y = p(2);
+            t = t*obj.time_z_scale;
             
             % Plot circle
             DrawCircle([x,y,t], s*obj.robot_size, obj.circle_points, ...
@@ -178,6 +182,7 @@ classdef Plotter2D < handle
             
             x = p(1);
             y = p(2);
+            t = t*obj.time_z_scale;
             text(x, y, t, l, 'FontSize', obj.text_size, ...
                 'FontWeight', 'bold', 'HorizontalAlignment', 'Center');
             
@@ -192,6 +197,7 @@ classdef Plotter2D < handle
         
         function PlotCovEllipse(obj, p, t, cov)                      
             
+            t = t*obj.time_z_scale;
             cov = cov(1:2,1:2);
             a = linspace(0, 2*pi, obj.ellipse_points);
             c = [cos(a); sin(a)];
@@ -226,12 +232,13 @@ classdef Plotter2D < handle
             p = obj.history.states(m.observer_time).poses(:,m.observer_id);
             pEst = m.ToPose(p);
             
-            thickness = obj.measurement_thickness;
-            %thickness = norm(inv(m.covariance))*1E-5;
-            DrawLine([p(1:2); m.observer_time], [pEst(1:2); m.target_time], ...
+            thickness = obj.measurement_thickness;            
+            to = m.observer_time*obj.time_z_scale;
+            tt = m.target_time*obj.time_z_scale;
+            DrawLine([p(1:2); to], [pEst(1:2); tt], ...
                 'Color', color, 'LineWidth', thickness);
             
-            obj.PlotPose(pEst, m.target_time, color, 0.5);
+            %obj.PlotPose(pEst, m.target_time, color, 0.5);
             
         end
         

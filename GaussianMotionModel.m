@@ -28,6 +28,10 @@ classdef GaussianMotionModel < handle & MotionModel
         function [newPose] = GenerateMotion(obj, currentPose, inputs)
            
             noise = mvnrnd(obj.mean, obj.covariance)';
+            a = currentPose(3);
+            R = [cos(a), -sin(a);
+                 sin(a), cos(a)];
+            noise(1:2) = R*noise(1:2);
             newPose = currentPose + inputs + noise;
             
         end
