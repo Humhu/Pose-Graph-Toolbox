@@ -66,6 +66,10 @@ classdef Simulator2D < handle
                 mm = GaussianMotionModel();
                 mm.mean = [0;0;0];
                 mm.covariance = (0.01)^2*eye(3);
+                mm.input_limits = [Inf*ones(3,1), -Inf*ones(3,1)];
+                mm.output_limits = [obj.world.dims/2, -obj.world.dims/2;
+                                    Inf, -Inf];
+                mm.output_wrapping = boolean([0,0,1]);
                 r.RegisterMotionModel(mm);
                 
                 rps = RelativePoseSensor();
