@@ -18,7 +18,15 @@ classdef WorldState2D
                 return
             end
             
-        end                
+        end
+        
+        function [d] = GetDimension(obj)
+            if isempty(obj.poses)
+                d = 0;
+            else
+                d = size(obj.poses, 2);
+            end
+        end
         
     end
     
