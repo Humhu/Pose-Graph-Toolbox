@@ -1,4 +1,5 @@
-% Represents an iterative localization problem
+% Optimizes a graph using Gauss-Newton iteration
+% DEPRECATED! See GNSolve.m
 classdef GNIterate < handle
     
     properties
@@ -70,7 +71,6 @@ classdef GNIterate < handle
             N = obj.beliefs.GetDimension();
             T = obj.beliefs.GetLength();
             
-            anchor = obj.beliefs.states(1).poses(:,1);
             prev_seq = obj.beliefs.GetPosesDouble();
             
             % System Jacobian matrix
@@ -176,6 +176,7 @@ classdef GNIterate < handle
         
         % Range-Bearing Iteration
         % TODO: Update to be consistent with Sequence2Ds
+        %{
         function [dM, dN] = IterateRB(obj)
             
             % Calculate errors
@@ -258,7 +259,7 @@ classdef GNIterate < handle
             obj.Visualize();
             
         end
-        
+        %}
         
         
     end
