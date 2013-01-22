@@ -76,9 +76,9 @@ classdef Plotter2D < handle
         
         function [] = PlotSequence(obj, seq)
             
-            T = seq.GetLength();
+            T = numel(seq);
             for t = 1:T
-                obj.PlotState(seq.states(t));
+                obj.PlotState(seq(t));
             end
             
         end
@@ -132,7 +132,7 @@ classdef Plotter2D < handle
         
         function [] = PlotSequenceCovariances(obj, truth, belief, cov)
             
-            T = belief.GetLength();
+            T = numel(belief);
             for t = 1:T
                 obj.PlotMeasurements(belief.states(t));
                 obj.PlotPoseCovariances(belief.states(t), cov(t,:));
