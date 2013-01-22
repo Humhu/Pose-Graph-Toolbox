@@ -1,4 +1,5 @@
 % Only intended to work for 2D matrices
+% TODO: Finish!
 function [Mr] = BlockReshape(M, bsize, rsize)
 
 bheight = bsize(1);
