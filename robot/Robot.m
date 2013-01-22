@@ -14,12 +14,15 @@ classdef Robot < handle
         motionModel;            % Robot's motion model
         sensors;                % Robot's sensor handles
         
+        roles;                  % Software agents
+        
         odometry;
         
     end
     
     methods
         
+        % Split into a Copy() method
         function obj = Robot(a)
             
             if nargin == 0
@@ -83,6 +86,14 @@ classdef Robot < handle
             
         end
         
+        % Roles should be registered in lowest-level first order
+        function [] = RegisterRole(obj, r)
+           
+            obj.roles = [obj.roles, {r}];
+            r.ownerID = obj.ID;
+            
+        end
+        
         function [] = Step(obj, state)
             
             obj.beliefs = obj.pose; %TODO: Placeholder
@@ -99,6 +110,8 @@ classdef Robot < handle
             obj.odometry.target_id = obj.ID;
             obj.odometry.observer_time = state.time + 1;
             obj.odometry.target_time = state.time;
+            
+            obj.roles{1}.ProcessMeasurements({obj.odometry});
             
         end
         
