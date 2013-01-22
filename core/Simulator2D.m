@@ -4,12 +4,12 @@ classdef Simulator2D < handle
     properties
         
         world;       % Handle to sim world
-        history;     % Records of full state time sequence
+        history = WorldState2D;     % Records of full state time sequence
+        history_ind;
+        
         plotter;     % Visualization
         recorder;    % Video file ID
-        recording = false;
-        em;
-        em_plotter;        
+        recording = false;        
         
     end
     
@@ -33,10 +33,8 @@ classdef Simulator2D < handle
             obj.plotter = Plotter2D(world_size); % Initialize visualization
             obj.plotter.Label('Truth');
             
-            %obj.em = EMIterate(100); % TODO: Un-hardcode!
-            obj.em = GNIterate(100);
-            obj.em_plotter = Plotter2D(world_size);
-            obj.em_plotter.Label('Estimate');
+            obj.history(100) = WorldState2D;
+            obj.history_ind = 1;
             
             if nargin < 2
                 return;
@@ -93,8 +91,7 @@ classdef Simulator2D < handle
             id = obj.world.GetNumRobots() + 1;
             for i = 1:N
                 
-                r = robs(i);
-                %r.pose = Pose2D(positions(i,:,:),orientations(i));
+                r = robs(i);               
                 r.pose = poses(:,i);
                 r.SetID(id);
                 id = id + 1;
@@ -102,13 +99,9 @@ classdef Simulator2D < handle
             end
             obj.world.AddRobots(robs);
             state = obj.world.GetState();
-            
-            obj.history = Sequence2D(1);
-            obj.history.Write(state);
-            
-            obj.em.Initialize(state);
-            obj.em_plotter.SetColors(obj.world.GetNumRobots());
-            obj.EMVisualize();
+
+            obj.history(obj.history_ind) = state;
+            obj.history_ind = obj.history_ind + 1;
             
             obj.plotter.Clear();
             obj.plotter.SetColors(obj.world.GetNumRobots());
@@ -116,6 +109,7 @@ classdef Simulator2D < handle
             
         end
         
+        % TODO: Move recording methods to Plotter2D
         function [] = BeginRecording(obj, fname)
             if obj.recording
                 obj.recorder.close()
@@ -124,7 +118,7 @@ classdef Simulator2D < handle
             obj.recorder.FrameRate = 24;
             obj.recorder.open();
             obj.recording = true;
-            axis(obj.em_plotter.axe, [-0.5, 0.5, -0.5, 0.5, 0, 1]);
+            axis(obj.plotter.axe, [-0.5, 0.5, -0.5, 0.5, 0, 1]);
         end
         
         function [] = StopRecording(obj)
@@ -141,94 +135,22 @@ classdef Simulator2D < handle
                 N = 1;
             end
             
-            localHist = Sequence2D(N);
+            localHist(N) = WorldState2D;
+            localInd = 1;
             
             for i = 1:N
                 obj.world.Step();
                 state = obj.world.GetState();
-                localHist.Write(state);
+                localHist(localInd) = state;
+                localInd = localInd + 1;
                 obj.plotter.PlotState(state);
-                obj.em.Update(state);
             end
             
-            obj.history = obj.history.Append(localHist);
+            obj.history(obj.history_ind:obj.history_ind + N - 1) = localHist;
+            obj.history_ind = obj.history_ind + N;
             
-        end
-        
-        function [errs] = StepSolve(obj,N)
-            
-            if nargin == 1
-                N = 1;
-            end                        
-            
-            errs = cell(1,N);
-            
-            for i = 1:N
-                obj.Step();
-                errs{i} = obj.RunEM(true);
-            end
-            
-        end
-        
-        function [errs] = RunEM(obj, vis)
-            
-            max_iters = 100;
-            tol = 1E-3;
-            
-            for i = 1:max_iters
-                [dMax, dNorm] = obj.em.Iterate();
-                fprintf(['Iteration: ', num2str(i), '\tDelta max: ', num2str(dMax), '\tDelta norm: ', num2str(dNorm), '\n']);
-                if vis
-                    obj.EMVisualize();
-                end
-                if obj.recording
-                    t = obj.world.state.time;
-                    if t > 8
-                       axis([-0.5, 0.5, -0.5, 0.5, t*0.1 - 0.8, t*0.1 + 0.2]); 
-                    end
-                    f = getframe(obj.em_plotter.fig);
-                    obj.recorder.writeVideo(f);
-                end
-                if dNorm < tol
-                    break
-                end
+        end       
                 
-            end
-            
-            errs = obj.em.truth.Difference(obj.em.beliefs);
-            fprintf('Errors (n, t):\n');
-            disp(errs);
-            
-            obj.EMVisualize();
-            
-        end
-        
-        function [] = EMVisualize(obj)
-            
-            belief = obj.em.beliefs;
-            history = obj.history;
-            
-            obj.em_plotter.Clear();
-            obj.em_plotter.PlotSequence(belief);
-            t = belief.GetLength();
-            if ~isempty(obj.em.covariance)
-                if t > 10
-                   belief = belief.Subset(t-10:t);
-                   history = history.Subset(t-10:t);
-                end                
-                obj.em_plotter.PlotSequenceCovariances(history, belief, obj.em.covariance);
-            end
-            
-        end
-        
-    end
-    
-    
-    
-    
-    
-    
-    
-    
+    end    
     
 end
