@@ -20,12 +20,25 @@ classdef WorldState2D
             
         end
         
+        % Returns 
         function [d] = GetDimension(obj)
-            if isempty(obj.poses)
+            if isempty([obj(1).poses])
                 d = 0;
             else
-                d = size(obj.poses, 2);
+                d = size(obj(1).poses, 2);
             end
+        end
+        
+        % Returns time span
+        function [l] = GetLength(obj)
+           
+            if numel(obj) < 2
+                l = 0;
+                return
+            end
+            times = [obj.time];
+            l = max(times) - min(times);
+            
         end
         
     end
