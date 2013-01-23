@@ -24,6 +24,9 @@ classdef Plotter2D < handle
         
         time_z_scale    = 0.1 % Conversion from time to z height
         
+        tMap;           % Time to index mapping
+        idMap;          % ID to index mapping
+        
     end
     
     methods
@@ -33,7 +36,7 @@ classdef Plotter2D < handle
                 return
             end
             
-            obj.history = Sequence2D(100); % TODO: Un-hardcode
+            obj.history = WorldState2D.empty(1,0);
             
             obj.dims = reshape(size, 2, 1);
             obj.fig = figure;
@@ -70,7 +73,7 @@ classdef Plotter2D < handle
         function [] = Clear(obj)
             
             cla(obj.axe);
-            obj.history.Clear();
+            obj.history = [];
             
         end
         
@@ -85,7 +88,8 @@ classdef Plotter2D < handle
         
         function [] = PlotState(obj, state)
             
-            obj.history.Write(state);
+            obj.history = [obj.history, state];
+            [obj.idMap, obj.tMap] = obj.history.BuildMaps();
             obj.PlotMeasurements(state);
             obj.PlotPoses(state);
             
@@ -211,25 +215,30 @@ classdef Plotter2D < handle
         end
         
         % TODO: Update for consistency!
-        function PlotRangeBearing(obj, fs, m)
-            
-            id1 = m.observer_id;
-            color = obj.colors(id1,:);
-            p = fs.states(m.observer_time).poses(id1);
-            x = p.position(1);
-            y = p.position(2);
-            
-            dx = m.range*cos(wrapToPi(p(3) + m.bearing));
-            dy = m.range*sin(wrapToPi(p(3) + m.bearing));
-            DrawLine([x, y, m.observer_time], [x + dx, y + dy, m.target_time], ...
-                'Color', color, 'LineWidth', obj.measurement_thickness);
-            
-        end
+%         function PlotRangeBearing(obj, fs, m)
+%             
+%             id1 = m.observer_id;
+%             color = obj.colors(id1,:);
+%             p = fs.states(m.observer_time).poses(id1);
+%             x = p.position(1);
+%             y = p.position(2);
+%             
+%             dx = m.range*cos(wrapToPi(p(3) + m.bearing));
+%             dy = m.range*sin(wrapToPi(p(3) + m.bearing));
+%             DrawLine([x, y, m.observer_time], [x + dx, y + dy, m.target_time], ...
+%                 'Color', color, 'LineWidth', obj.measurement_thickness);
+%             
+%         end
         
         function PlotRelativePose(obj, m)
             
-            color = obj.colors(m.target_id,:);
-            p = obj.history.states(m.observer_time).poses(:,m.observer_id);
+            tar_id = obj.idMap.Forward(m.target_id);
+            obs_id = obj.idMap.Forward(m.observer_id);
+            tar_t = obj.tMap.Forward(m.target_time);
+            obs_t = obj.tMap.Forward(m.observer_time);
+            
+            color = obj.colors(tar_id,:);
+            p = obj.history(obs_t).poses(:,obs_id);
             pEst = m.ToPose(p);
             
             thickness = obj.measurement_thickness;            

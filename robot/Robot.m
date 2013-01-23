@@ -16,6 +16,7 @@ classdef Robot < handle
         
         roles;                  % Software agents
         
+        measurements;           % Current measurements in cell form
         odometry;
         
     end
@@ -49,7 +50,7 @@ classdef Robot < handle
         % TODO: Make this less hacky somehow
         % Perhaps store a robot handle in the sensors instead of ID?
         function [] = SetID(obj, id)
-           
+            
             obj.ID = id;
             if ~isempty(obj.motionController)
                 obj.motionController.ownerID = id;
@@ -58,9 +59,9 @@ classdef Robot < handle
                 obj.motionModel.ownerID = id;
             end
             if ~isempty(obj.sensors)
-               for i = 1:numel(obj.sensors)
-                   obj.sensors{i}.ownerID = id;
-               end
+                for i = 1:numel(obj.sensors)
+                    obj.sensors{i}.ownerID = id;
+                end
             end
             
         end
@@ -88,8 +89,8 @@ classdef Robot < handle
         
         % Roles should be registered in lowest-level first order
         function [] = RegisterRole(obj, r)
-           
-            obj.roles = [obj.roles, {r}];
+            
+            obj.roles = [obj.roles, r];
             r.ownerID = obj.ID;
             
         end
@@ -99,7 +100,7 @@ classdef Robot < handle
             obj.beliefs = obj.pose; %TODO: Placeholder
             prevPose = obj.pose;
             u = obj.motionController.GenerateOutputs(obj.beliefs);
-            obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);            
+            obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);
             
             estPose = prevPose + u;
             estPose(3) = wrapToPi(estPose(3));
@@ -111,53 +112,63 @@ classdef Robot < handle
             obj.odometry.observer_time = state.time + 1;
             obj.odometry.target_time = state.time;
             
-            obj.roles{1}.ProcessMeasurements({obj.odometry});
+            if ~isempty(obj.roles)
+                obj.roles(1).ProcessMeasurements({obj.odometry});
+            end
             
         end
         
-        function [measurements] = GetMeasurements(obj, state)
+        function [meas] = GetMeasurements(obj)
             
-            measurements = {};
-            
-            for i = 1:numel(obj.sensors);
-                measurements = [measurements; obj.sensors{i}.GenerateMeasurements(state)];
-            end            
-            if ~isempty(obj.odometry)
-                measurements = [measurements; {obj.odometry}];
-            end
+            meas = obj.measurements;
             
         end
     end
     
     methods(Access = private)
         
-        % TODO: Convert to sensor module
-        function [measurements] = GetMeasurementsRangeBearing(obj, state)
+        function GenerateMeasurements(obj, state)
             
-            N = numel(state.poses);
-            p = obj.pose;
-            measurements = {};
+            meas = {};
             
-            for i = 1:N
-                
-                target_id = state.ids(i);
-                if target_id == obj.ID
-                    continue
-                end
-                target_pose = state.poses(i);
-                rel = target_pose - p;
-                if norm(rel.position) > obj.sensor_range
-                    continue
-                end
-                
-                m = MeasurementRangeBearing(p, target_pose, obj.sensor_covariance);
-                m.observer_id = obj.ID;
-                m.target_id = target_id;
-                measurements = [measurements, {m}];
-                
+            for i = 1:numel(obj.sensors);
+                meas = [meas; obj.sensors{i}.GenerateMeasurements(state)];
+            end
+            if ~isempty(obj.odometry)
+                meas = [meas; {obj.odometry}];
             end
             
+            obj.measurements = meas;
+            
         end
+        
+        % TODO: Convert to sensor module
+%         function [measurements] = GetMeasurementsRangeBearing(obj, state)
+%             
+%             N = numel(state.poses);
+%             p = obj.pose;
+%             measurements = {};
+%             
+%             for i = 1:N
+%                 
+%                 target_id = state.ids(i);
+%                 if target_id == obj.ID
+%                     continue
+%                 end
+%                 target_pose = state.poses(i);
+%                 rel = target_pose - p;
+%                 if norm(rel.position) > obj.sensor_range
+%                     continue
+%                 end
+%                 
+%                 m = MeasurementRangeBearing(p, target_pose, obj.sensor_covariance);
+%                 m.observer_id = obj.ID;
+%                 m.target_id = target_id;
+%                 measurements = [measurements, {m}];
+%                 
+%             end
+%             
+%         end
         
         function [o] = MoveRandom(obj, w)
             
