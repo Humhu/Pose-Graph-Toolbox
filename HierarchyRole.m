@@ -13,8 +13,7 @@ classdef HierarchyRole < handle
         
         higher_beliefs = {}; % WorldState2D arrays representing higher beliefs
         
-        beliefs = WorldState2D; % WorldState2D array representing local beliefs
-        beliefs_ind;
+        beliefs = WorldState2D; % WorldState2D array representing local beliefs        
         solver;     % GNSolver object
         
         tstep_cnt;  % Time steps since last transmit
@@ -30,11 +29,7 @@ classdef HierarchyRole < handle
             obj.level = level;
             obj.solver = GNSolver(1E-3, 100);
             
-            obj.higher_beliefs = cell(1,level);
-            
-            obj.beliefs(100) = WorldState2D;
-            obj.beliefs_ind = 1;
-            
+            obj.higher_beliefs = cell(1,level);                                                
             obj.tx_buffer = BinBuffer(1, 50);
             
         end
@@ -44,7 +39,9 @@ classdef HierarchyRole < handle
             
             n = numel(followers);
             obj.followers = followers;
-            
+            for i = 1:n
+                obj.followers(i).leader = obj;
+            end
             obj.rx_buffer = BinBuffer(n, 50);
             
         end
@@ -62,23 +59,26 @@ classdef HierarchyRole < handle
             
         end
         
-        % Return indices of team (leader, self, and co-members)
+        % Return indices of team (self and followers)
         function [ids] = GetTeam(obj)
             
-            if isempty(obj.leader)
-                ids = [];
+            ids = obj.ownerID;
+            
+            if isempty(obj.followers)                
                 return
             end
             
-            ids = [obj.leader.ownerID, obj.leader.followers.ownerID];
+            ids = [ids, obj.followers.ownerID];
             
         end
         
         % Initialize agent's beliefs
-        function Initialize(obj, state)
+        % TODO: How to initialize position guesses?
+        function Initialize(obj, state)           
             
             obj.beliefs(1) = state;
-            obj.beliefs_ind = 2;
+            % TODO: Process instead of tossing measurements?
+            %obj.beliefs(1).measurements = [];
             
         end
         
@@ -113,18 +113,17 @@ classdef HierarchyRole < handle
             team_ids = obj.GetTeam();
             for i = 1:numel(measurements)
                 z = measurements{i};
-                if ~any(z.target_id == team_ids) || ~any(z.observer_id) == team_ids
+                if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
                     obj.tx_buffer.Push(1,z);
                     measurements(i) = [];
                 end
             end
             
             %2. Add new time slice to belief sequence
-            new_state = obj.beliefs(obj.beliefs_ind - 1);
+            new_state = obj.beliefs(end);
             new_state.measurements = measurements;
             new_state.time = new_state.time + obj.time_scale;
-            obj.beliefs(obj.beliefs_ind) = obj.beliefs(obj.beliefs_ind - 1);
-            obj.beliefs_ind = obj.beliefs_ind + 1;
+            obj.beliefs(end + 1) = new_state;
             
             %3. Perform local optimization
             obj.beliefs = obj.solver.Solve(obj.beliefs);
