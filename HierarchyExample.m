@@ -45,6 +45,7 @@ r0.RegisterSensor(rps);
 % Add robots to simulator
 r = sim.InitRobots(3, r0);
 
+%% Set up hierarchy
 % TODO: Programmatic way to initialize hierarchy roles...
 % Roles (3 robots for now = 4 roles)
 root = HierarchyRole(0);
@@ -53,9 +54,36 @@ leaf1 = HierarchyRole(2);
 leaf2 = HierarchyRole(3);
 root.AssignFollowers([leaf0, leaf1, leaf2]);
 
+leaf0.time_scale = 1;
+leaf1.time_scale = 1;
+leaf2.time_scale = 1;
+root.time_scale = 3;
+
 % Register roles
 r(1).RegisterRole(leaf0);
 r(2).RegisterRole(leaf1);
 r(3).RegisterRole(leaf2);
 r(1).RegisterRole(root);
 
+% Initialize roles
+s0r = sim.world.state;
+
+s0 = WorldState2D;
+s0.ids = r(1).ID;
+s0.poses = zeros(3,1);
+s0.time = 0;
+
+s1 = WorldState2D;
+s1.ids = r(2).ID;
+s1.poses = zeros(3,1);
+s1.time = 0;
+
+s2 = WorldState2D;
+s2.ids = r(3).ID;
+s2.poses = zeros(3,1);
+s2.time = 0;
+
+root.Initialize(s0r);
+leaf0.Initialize(s0);
+leaf1.Initialize(s1);
+leaf2.Initialize(s2);

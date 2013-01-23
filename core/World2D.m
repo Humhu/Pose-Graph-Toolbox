@@ -19,7 +19,7 @@ classdef World2D < handle
             end
             
             obj.state = WorldState2D;
-            obj.state.time = 1;
+            obj.state.time = 0;
             
             if isa(a, 'double')
                 obj.dims = reshape(a, 2, 1);
