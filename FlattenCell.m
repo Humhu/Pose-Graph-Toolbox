@@ -1,9 +1,14 @@
 % TODO: Make work for the general case
 function [flat] = FlattenCell(data)
     
+    if isempty(data)
+        flat = [];
+        return
+    end
+
     if ~iscell(data)
         flat = { data(:)' };
-        return;
+        return
     end        
     
     flat = cell(1,0);
