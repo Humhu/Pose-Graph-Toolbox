@@ -37,7 +37,7 @@ classdef GNSolver < handle
         function [solution, cov] = Solve(obj, sequence)
             
             % Need maps for IDs and time to indices
-            [idMap, tMap] = obj.BuildMaps(sequence);
+            [idMap, tMap] = sequence.BuildMaps();
             
             rem = Inf;
             solution = sequence;
@@ -52,25 +52,7 @@ classdef GNSolver < handle
         
     end
     
-    methods(Access = private)
-        
-        % Build ID-index map and time-index map
-        % Assume constant set of IDs throughout sequence for now
-        % Also assume small # of robots so linear search for mapping is OK
-        function [idMap, tMap] = BuildMaps(obj, sequence)
-            
-            % Map ID-indices
-            ids = sequence(1).ids;
-            uids = unique(ids);
-            pinds = 1:numel(uids);
-            idMap = SearchMap(ids, pinds);
-            
-            % Map time-indices
-            times = [sequence.time];
-            tinds = 1:numel(times);
-            tMap = SearchMap(times, tinds);
-            
-        end
+    methods(Access = private)        
         
         function [solution, delta, cov] = Iterate(obj, sequence, idMap, tMap)
             
