@@ -105,6 +105,7 @@ classdef Robot < handle
             estPose = prevPose + u;
             estPose(3) = wrapToPi(estPose(3));
             
+            % Odometry - generalize to sensor and move to module?
             obj.odometry = MeasurementRelativePose(estPose, prevPose, zeros(3));
             obj.odometry.covariance = obj.motionModel.covariance;
             obj.odometry.observer_id = obj.ID;
@@ -112,14 +113,17 @@ classdef Robot < handle
             obj.odometry.observer_time = state.time + 1;
             obj.odometry.target_time = state.time;
             
+            % TODO: Has to come after odometry! Fix this!!
+            obj.GenerateMeasurements(state); 
+            
             if ~isempty(obj.roles)
-                obj.roles(1).ProcessMeasurements({obj.odometry});
+                obj.roles(1).ProcessMeasurements(obj.measurements);
             end
             
         end
         
         function [meas] = GetMeasurements(obj)
-            
+                        
             meas = obj.measurements;
             
         end

@@ -67,6 +67,8 @@ r(1).RegisterRole(root);
 
 % Initialize roles
 s0r = sim.world.state;
+s0r.poses = bsxfun(@minus, s0r.poses, s0r.poses(:,1));
+s0r.poses(3,:) = wrapToPi(s0r.poses(3,:));
 
 s0 = WorldState2D;
 s0.ids = r(1).ID;

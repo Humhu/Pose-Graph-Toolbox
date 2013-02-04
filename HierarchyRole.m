@@ -13,7 +13,8 @@ classdef HierarchyRole < handle
         
         higher_beliefs = {}; % WorldState2D arrays representing higher beliefs
         
-        beliefs = WorldState2D; % WorldState2D array representing local beliefs        
+        beliefs = WorldState2D; % WorldState2D array representing local beliefs   
+        beliefs_cov;    % Covariance matrix
         solver;     % GNSolver object
         
         tstep_cnt;  % Time steps since last transmit
@@ -31,6 +32,8 @@ classdef HierarchyRole < handle
             
             obj.higher_beliefs = cell(1,level);                                                
             obj.tx_buffer = BinBuffer(1, 50);
+            
+            obj.tstep_cnt = 0;
             
         end
         
@@ -51,8 +54,8 @@ classdef HierarchyRole < handle
             new = HierarchyRole(obj.level);
             new.solver = obj.solver.Copy();
             
-            new.beliefs = obj.beliefs;
-            new.beliefs_ind = obj.beliefs_ind;
+            new.beliefs = obj.beliefs;            
+            new.beliefs_cov = obj.beliefs_cov;
             
             new.leader = obj.leader;
             new.followers = obj.followers;
@@ -68,7 +71,8 @@ classdef HierarchyRole < handle
                 return
             end
             
-            ids = [ids, obj.followers.ownerID];
+            % Self ID is contained in followers.ownerID
+            ids = [obj.followers.ownerID];
             
         end
         
@@ -77,6 +81,7 @@ classdef HierarchyRole < handle
         function Initialize(obj, state)           
             
             obj.beliefs(1) = state;
+            obj.tstep_cnt = 1;
             % TODO: Process instead of tossing measurements?
             %obj.beliefs(1).measurements = [];
             
@@ -89,13 +94,33 @@ classdef HierarchyRole < handle
             
         end
         
+        % Converts local beliefs into proper time scale
+        % We only send the optimized results for the group leader (i = 1)
+        function [z] = ConvertOptimization(obj)
+            curr_state = obj.beliefs(end);
+            prev_state = obj.beliefs(end - obj.leader.time_scale);            
+            curr_pose = curr_state.poses(:,1);
+            prev_pose = prev_state.poses(:,1);
+            
+            N = numel(obj.GetTeam());
+            
+            z = MeasurementRelativePose(curr_pose, prev_pose, zeros(3));
+            z.observer_id = obj.ownerID;
+            z.target_id = obj.ownerID;
+            z.observer_time = curr_state.time;
+            z.target_time = prev_state.time;
+            z.covariance = obj.beliefs_cov{end - N + 1, ...
+                end - N - obj.leader.time_scale + 1};
+            
+        end
+        
         % Transmit measurements to this agent
         % fid is the follower robot ownerID
         % TODO: How to deal with outages, multi-step bursts of
         % measurements?
         function InformMeasurements(obj, measurements, fid)
             
-            ids = [obj.followers.ids];
+            ids = [obj.followers.ownerID];
             obj.rx_buffer.Push(ids == fid, measurements);
             
             % When all follower readings received, process
@@ -110,14 +135,16 @@ classdef HierarchyRole < handle
         function ProcessMeasurements(obj, measurements)
             
             %1. Buffer away non-local measurements
-            team_ids = obj.GetTeam();
+            team_ids = obj.GetTeam();           
+            remove = false(numel(measurements), 1);
             for i = 1:numel(measurements)
                 z = measurements{i};
                 if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
                     obj.tx_buffer.Push(1,z);
-                    measurements(i) = [];
+                    remove(i) = 1;
                 end
             end
+            measurements(remove) = [];
             
             %2. Add new time slice to belief sequence
             new_state = obj.beliefs(end);
@@ -126,7 +153,7 @@ classdef HierarchyRole < handle
             obj.beliefs(end + 1) = new_state;
             
             %3. Perform local optimization
-            obj.beliefs = obj.solver.Solve(obj.beliefs);
+            [obj.beliefs, obj.beliefs_cov] = obj.solver.Solve(obj.beliefs);
             
             %4. Communicate results to followers
             for i = 1:numel(obj.followers)
@@ -135,9 +162,16 @@ classdef HierarchyRole < handle
             
             %5. If enough time passed, transmit buffer to leader
             obj.tstep_cnt = obj.tstep_cnt + 1;
-            if obj.tstep_cnt >= obj.leader.time_scale/obj.time_scale;
-                obj.leader.InformMeasurements(obj.tx_buffer.PopAll());
-                obj.tstep_cnt = obj.tstep_cnt - 1;
+            
+            if isempty(obj.leader)
+                continue
+            end
+            
+            if obj.tstep_cnt > obj.leader.time_scale;
+                op_z = obj.ConvertOptimization();
+                meas = [obj.tx_buffer.PopAll(), {op_z}];
+                obj.leader.InformMeasurements(meas, obj.ownerID);
+                obj.tstep_cnt = 0; % Because we popped all
             end
             
         end

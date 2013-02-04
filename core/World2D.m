@@ -123,7 +123,7 @@ classdef World2D < handle
             obj.state.measurements = {};                        
             for i = 1:numel(obj.robots)
                 
-                m = obj.robots(i).GetMeasurements(obj.state);
+                m = obj.robots(i).GetMeasurements();
                 obj.state.measurements = [obj.state.measurements; m];
                 
             end

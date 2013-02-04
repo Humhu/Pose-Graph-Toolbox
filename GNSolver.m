@@ -54,7 +54,7 @@ classdef GNSolver < handle
     
     methods(Access = private)        
         
-        function [solution, delta, cov] = Iterate(obj, sequence, idMap, tMap)
+        function [solution, delta, covs] = Iterate(obj, sequence, idMap, tMap)
             
             T = numel(sequence);
             N = sequence.GetDimension();
@@ -74,6 +74,9 @@ classdef GNSolver < handle
                 tar_t = tMap.Forward(m.target_time);
                 obs_id = idMap.Forward(m.observer_id);
                 tar_id = idMap.Forward(m.target_id);
+                if isempty(obs_t) || isempty(tar_t)
+                    continue;
+                end
                 
                 % Retrieve relevant poses
                 obs_p = sequence(obs_t).poses(:, obs_id);
@@ -136,13 +139,12 @@ classdef GNSolver < handle
                 end
             end
             
-            % Store covariances
-            allcovs = mat2cell(inv(H), 3*ones(N*T,1), 3*ones(N*T,1));
-            locovs = cell(N, T);
-            ci = sub2ind([N*T, N*T], 1:N*T, 1:N*T);
-            locovs(1:N*T) = allcovs(ci);
-            cov = locovs';
-            
+            % Store diagonal covariances
+            covs = mat2cell(inv(H), 3*ones(N*T,1), 3*ones(N*T,1));
+%             locovs = cell(N, T);
+%             ci = sub2ind([N*T, N*T], 1:N*T, 1:N*T);
+%             locovs(1:N*T) = allcovs(ci);
+%             cov = locovs';
         end
         
     end
