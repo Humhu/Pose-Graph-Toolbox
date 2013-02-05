@@ -9,7 +9,7 @@ classdef Simulator2D < handle
         
         plotter;     % Visualization
         recorder;    % Video file ID
-        recording = false;        
+        recording = false;
         
     end
     
@@ -66,7 +66,7 @@ classdef Simulator2D < handle
                 mm.covariance = (0.01)^2*eye(3);
                 mm.input_limits = [Inf*ones(3,1), -Inf*ones(3,1)];
                 mm.output_limits = [obj.world.dims/2, -obj.world.dims/2;
-                                    Inf, -Inf];
+                    Inf, -Inf];
                 mm.output_wrapping = boolean([0,0,1]);
                 r.RegisterMotionModel(mm);
                 
@@ -76,7 +76,7 @@ classdef Simulator2D < handle
                 rps.covariance = (0.01)^2*eye(3);
                 r.RegisterSensor(rps);
                 
-            end            
+            end
             
             for i = 1:N
                 robs(i,1) = Robot(r);
@@ -91,7 +91,7 @@ classdef Simulator2D < handle
             id = obj.world.GetNumRobots() + 1;
             for i = 1:N
                 
-                r = robs(i);               
+                r = robs(i);
                 r.pose = poses(:,i);
                 r.SetID(id);
                 id = id + 1;
@@ -99,13 +99,20 @@ classdef Simulator2D < handle
             end
             obj.world.AddRobots(robs);
             state = obj.world.GetState();
-
+            
             obj.history(obj.history_ind) = state;
             obj.history_ind = obj.history_ind + 1;
             
             obj.plotter.Clear();
             obj.plotter.SetColors(obj.world.GetNumRobots());
             obj.plotter.PlotState(state);
+            
+        end
+        
+        function [plotter] = CreatePlotter(obj)
+            
+            plotter = Plotter2D(obj.world.dims);
+            plotter.SetColors(obj.world.GetNumRobots());
             
         end
         
@@ -149,8 +156,8 @@ classdef Simulator2D < handle
             obj.history(obj.history_ind:obj.history_ind + N - 1) = localHist;
             obj.history_ind = obj.history_ind + N;
             
-        end       
-                
-    end    
+        end
+        
+    end
     
 end

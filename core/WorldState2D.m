@@ -55,6 +55,25 @@ classdef WorldState2D
             
         end
         
+        function [rotated] = Zero(obj)
+           
+            rotated = obj;
+            zero_pose = obj(1).poses(:,1);
+            a = zero_pose(3);
+            R = [cos(a), sin(a);
+                 -sin(a), cos(a)];
+             
+            N = rotated.GetDimension();
+            T = numel(rotated);
+            p = [rotated.poses];
+            p = bsxfun(@minus, p, zero_pose);
+            p(1:2,:) = R*p(1:2,:);
+            for i = 1:T
+               rotated(i).poses = p(:,(N*(i-1) + 1):(N*i));
+            end
+            
+        end
+        
     end
     
 end

@@ -20,6 +20,7 @@ classdef HierarchyRole < handle
         tstep_cnt;  % Time steps since last transmit
         tx_buffer;  % BinBuffer storing higher level measurements to send
         rx_buffer;  % BinBuffer that stores measurements from followers
+        heard_from;
         
     end
     
@@ -32,7 +33,7 @@ classdef HierarchyRole < handle
             
             obj.higher_beliefs = cell(1,level);                                                
             obj.tx_buffer = BinBuffer(1, 50);
-            
+            obj.rx_buffer = BinBuffer(1, 50);
             obj.tstep_cnt = 0;
             
         end
@@ -45,7 +46,7 @@ classdef HierarchyRole < handle
             for i = 1:n
                 obj.followers(i).leader = obj;
             end
-            obj.rx_buffer = BinBuffer(n, 50);
+            obj.heard_from = false(n,1);
             
         end
         
@@ -81,7 +82,7 @@ classdef HierarchyRole < handle
         function Initialize(obj, state)           
             
             obj.beliefs(1) = state;
-            obj.tstep_cnt = 1;
+            obj.tstep_cnt = 0;
             % TODO: Process instead of tossing measurements?
             %obj.beliefs(1).measurements = [];
             
@@ -103,14 +104,23 @@ classdef HierarchyRole < handle
             prev_pose = prev_state.poses(:,1);
             
             N = numel(obj.GetTeam());
+            T = numel(obj.beliefs);
             
             z = MeasurementRelativePose(curr_pose, prev_pose, zeros(3));
             z.observer_id = obj.ownerID;
             z.target_id = obj.ownerID;
             z.observer_time = curr_state.time;
             z.target_time = prev_state.time;
-            z.covariance = obj.beliefs_cov{end - N + 1, ...
-                end - N - obj.leader.time_scale + 1};
+            
+            prev_start = 3*N*(T - obj.leader.time_scale - 1) + 1;
+            prev_end = prev_start + 2;
+            curr_start = 3*N*(T - 1) + 1;
+            curr_end  = curr_start + 2;
+            inds = [prev_start:prev_end, curr_start:curr_end];
+            
+            fullcov = obj.beliefs_cov(inds, inds);
+            b = [-eye(3), eye(3)];
+            z.covariance = b*fullcov*b';
             
         end
         
@@ -121,19 +131,20 @@ classdef HierarchyRole < handle
         function InformMeasurements(obj, measurements, fid)
             
             ids = [obj.followers.ownerID];
-            obj.rx_buffer.Push(ids == fid, measurements);
+            obj.heard_from(ids == fid) = 1;
+            obj.rx_buffer.Push(1, measurements);
             
             % When all follower readings received, process
-            if ~any(obj.rx_buffer.IsEmpty())
-                obj.ProcessMeasurements(obj.rx_buffer.PopAll());
+            if all(obj.heard_from)
+                obj.PushMeasurements(obj.rx_buffer.PopAll());
+                obj.ProcessMeasurements();
+                obj.heard_from = false(size(obj.heard_from));
             end
             
         end
         
-        % Process new batch of measurements
-        % Should end up being called every obj.time_scale steps
-        function ProcessMeasurements(obj, measurements)
-            
+        function PushMeasurements(obj, measurements)
+        
             %1. Buffer away non-local measurements
             team_ids = obj.GetTeam();           
             remove = false(numel(measurements), 1);
@@ -145,6 +156,15 @@ classdef HierarchyRole < handle
                 end
             end
             measurements(remove) = [];
+            obj.rx_buffer.Push(1, measurements);
+            
+        end
+            
+        % Process new batch of measurements
+        % Should end up being called every obj.time_scale steps
+        function ProcessMeasurements(obj)
+            
+            measurements = obj.rx_buffer.PopAll();
             
             %2. Add new time slice to belief sequence
             new_state = obj.beliefs(end);
@@ -164,10 +184,10 @@ classdef HierarchyRole < handle
             obj.tstep_cnt = obj.tstep_cnt + 1;
             
             if isempty(obj.leader)
-                continue
+                return
             end
             
-            if obj.tstep_cnt > obj.leader.time_scale;
+            if obj.tstep_cnt >= obj.leader.time_scale;
                 op_z = obj.ConvertOptimization();
                 meas = [obj.tx_buffer.PopAll(), {op_z}];
                 obj.leader.InformMeasurements(meas, obj.ownerID);

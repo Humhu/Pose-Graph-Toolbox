@@ -237,6 +237,10 @@ classdef Plotter2D < handle
             tar_t = obj.tMap.Forward(m.target_time);
             obs_t = obj.tMap.Forward(m.observer_time);
             
+            if isempty(tar_t) || isempty(obs_t)
+                return
+            end
+            
             color = obj.colors(tar_id,:);
             p = obj.history(obs_t).poses(:,obs_id);
             pEst = m.ToPose(p);

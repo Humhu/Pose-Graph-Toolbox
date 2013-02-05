@@ -18,6 +18,7 @@ classdef Robot < handle
         
         measurements;           % Current measurements in cell form
         odometry;
+        last_output;            %
         
     end
     
@@ -25,6 +26,9 @@ classdef Robot < handle
         
         % Split into a Copy() method
         function obj = Robot(a)
+            
+            obj.last_output = zeros(3,1);
+            obj.sensors = {};
             
             if nargin == 0
                 return;
@@ -39,8 +43,7 @@ classdef Robot < handle
             obj.ID = a.ID;
             
             obj.motionController = a.motionController.Copy();
-            obj.motionModel = a.motionModel.Copy();
-            obj.sensors = {};
+            obj.motionModel = a.motionModel.Copy();                  
             for i = 1:numel(a.sensors)
                 obj.sensors = [obj.sensors, {a.sensors{i}.Copy()}];
             end
@@ -95,29 +98,44 @@ classdef Robot < handle
             
         end
         
-        function [] = Step(obj, state)
+        function [] = Step(obj, state)                       
             
-            obj.beliefs = obj.pose; %TODO: Placeholder
-            prevPose = obj.pose;
+            [idMap, ~] = state.BuildMaps();
+            currPose = state.poses(:,idMap.Forward(obj.ID));   
+            obj.beliefs = currPose; %TODO Placeholder for localization results
+            
+            % Generate control outputs and apply motion
             u = obj.motionController.GenerateOutputs(obj.beliefs);
             obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);
             
-            estPose = prevPose + u;
-            estPose(3) = wrapToPi(estPose(3));
+            prevPose = currPose - obj.last_output;
+            prevPose(3) = wrapToPi(prevPose(3));
+            obj.last_output = u;
             
-            % Odometry - generalize to sensor and move to module?
-            obj.odometry = MeasurementRelativePose(estPose, prevPose, zeros(3));
+            % TODO generalize to sensor and move to module
+            obj.odometry = MeasurementRelativePose(currPose, prevPose, zeros(3));
             obj.odometry.covariance = obj.motionModel.covariance;
             obj.odometry.observer_id = obj.ID;
             obj.odometry.target_id = obj.ID;
-            obj.odometry.observer_time = state.time + 1;
-            obj.odometry.target_time = state.time;
+            obj.odometry.observer_time = state.time;
+            obj.odometry.target_time = state.time - 1;
             
-            % TODO: Has to come after odometry! Fix this!!
-            obj.GenerateMeasurements(state); 
+            % Don't do any of the below on the first iteration
+            % TODO Such a hack..
+            if state.time == 0
+                obj.odometry = {};                
+            end
             
-            if ~isempty(obj.roles)
-                obj.roles(1).ProcessMeasurements(obj.measurements);
+            % TODO Has to come after odometry! Fix this!!
+            obj.GenerateMeasurements(state);             
+            obj.roles(1).PushMeasurements(obj.measurements);
+            
+            if state.time == 0
+                return
+            end
+            
+            if ~isempty(obj.roles)            
+                obj.roles(1).ProcessMeasurements();
             end
             
         end

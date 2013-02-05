@@ -64,7 +64,8 @@ classdef GNSolver < handle
             b = zeros(3*N*T, 1);
             
             % Build matrices using measurements
-            measurements = FlattenCell({sequence.measurements});            
+            measurements = FlattenCell({sequence.measurements});
+            used = {};
             for i = 1:numel(measurements)
                 
                 m = measurements{i};
@@ -77,6 +78,7 @@ classdef GNSolver < handle
                 if isempty(obs_t) || isempty(tar_t)
                     continue;
                 end
+                used = [used, {m}];
                 
                 % Retrieve relevant poses
                 obs_p = sequence(obs_t).poses(:, obs_id);
@@ -140,11 +142,8 @@ classdef GNSolver < handle
             end
             
             % Store diagonal covariances
-            covs = mat2cell(inv(H), 3*ones(N*T,1), 3*ones(N*T,1));
-%             locovs = cell(N, T);
-%             ci = sub2ind([N*T, N*T], 1:N*T, 1:N*T);
-%             locovs(1:N*T) = allcovs(ci);
-%             cov = locovs';
+            covs = inv(H);
+
         end
         
     end
