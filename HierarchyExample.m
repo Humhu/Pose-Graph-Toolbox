@@ -42,50 +42,71 @@ r0.RegisterMotionController(mc);
 r0.RegisterMotionModel(mm);
 r0.RegisterSensor(rps);
 
+%% Place robots
+% Generate positions
+center = zeros(3,1);
+d = 3;
+b = 4;
+f = 0.4;
+r = 0.25;
+covariance = zeros(3);
+seed = 0;
+
+positions = GenerateFractal(center, b, r, f, d, covariance, seed);
+positions = positions{end};
+positions = [positions{:}];
+positions(3,:) = wrapToPi(positions(3,:));
+
+% Generate robots
+robots = InitRobots(r0, {positions});
+grouping = GenerateGrouping(d, b);
+AssignGrouping(robots, grouping);
+
+
 % Add robots to simulator
-r = sim.InitRobots(3, r0);
+sim.AddRobots(robots);
 
 %% Set up hierarchy
 % TODO: Programmatic way to initialize hierarchy roles...
 % Roles (3 robots for now = 4 roles)
-root = HierarchyRole(0);
-leaf0 = HierarchyRole(1);
-leaf1 = HierarchyRole(2);
-leaf2 = HierarchyRole(3);
-root.AssignFollowers([leaf0, leaf1, leaf2]);
-
-leaf0.time_scale = 1;
-leaf1.time_scale = 1;
-leaf2.time_scale = 1;
-root.time_scale = 3;
-
+% root = HierarchyRole(0);
+% leaf0 = HierarchyRole(1);
+% leaf1 = HierarchyRole(1);
+% leaf2 = HierarchyRole(1);
+% root.AssignFollowers([leaf0, leaf1, leaf2]);
+% 
+% leaf0.time_scale = 1;
+% leaf1.time_scale = 1;
+% leaf2.time_scale = 1;
+% root.time_scale = 3;
+% 
 % Register roles
-r(1).RegisterRole(root);
-r(1).RegisterRole(leaf0);
-r(2).RegisterRole(leaf1);
-r(3).RegisterRole(leaf2);
-
+% robots(1).RegisterRole(root);
+% robots(1).RegisterRole(leaf0);
+% robots(2).RegisterRole(leaf1);
+% robots(3).RegisterRole(leaf2);
+% 
 % Initialize roles
-s0r = sim.world.state;
-s0r.poses = bsxfun(@minus, s0r.poses, s0r.poses(:,1));
-s0r.poses(3,:) = wrapToPi(s0r.poses(3,:));
-
-s0 = WorldState2D;
-s0.ids = r(1).ID;
-s0.poses = zeros(3,1);
-s0.time = 0;
-
-s1 = WorldState2D;
-s1.ids = r(2).ID;
-s1.poses = zeros(3,1);
-s1.time = 0;
-
-s2 = WorldState2D;
-s2.ids = r(3).ID;
-s2.poses = zeros(3,1);
-s2.time = 0;
-
-root.Initialize(s0r);
-leaf0.Initialize(s0);
-leaf1.Initialize(s1);
-leaf2.Initialize(s2);
+% s0r = sim.world.state;
+% s0r.poses = bsxfun(@minus, s0r.poses, s0r.poses(:,1));
+% s0r.poses(3,:) = wrapToPi(s0r.poses(3,:));
+% 
+% s0 = WorldState2D;
+% s0.ids = robots(1).ID;
+% s0.poses = zeros(3,1);
+% s0.time = 0;
+% 
+% s1 = WorldState2D;
+% s1.ids = robots(2).ID;
+% s1.poses = zeros(3,1);
+% s1.time = 0;
+% 
+% s2 = WorldState2D;
+% s2.ids = robots(3).ID;
+% s2.poses = zeros(3,1);
+% s2.time = 0;
+% 
+% root.Initialize(s0r);
+% leaf0.Initialize(s0);
+% leaf1.Initialize(s1);
+% leaf2.Initialize(s2);

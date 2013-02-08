@@ -1,5 +1,4 @@
-% Organizes robots into a specified hierarchy, or if no grouping is
-% specified, groups automatically based on distance
+% Organizes robots into a specified hierarchy
 %
 % Inputs:
 %   robots - Array of Robot objects
@@ -7,21 +6,16 @@
 %   indices in a group at depth k-1. The first index in the array is the
 %   leader.
 
-function [robots] = CreateHierarchy(robots, grouping)
-
-if nargin == 1
-   return;
-   % Some sorting algorithm here
-end
+function [robots] = AssignGrouping(robots, grouping)
 
 for k = 0:numel(grouping) - 1
    
     level = grouping{k + 1};
     
-    for i = 1:numel(indices)
+    for i = 1:numel(level)
        
         group = level{i};
-        followers = HierarchyRole();
+        followers = HierarchyRole.empty(numel(group),0);
         
         for j = 1:numel(group)
             
@@ -38,7 +32,7 @@ for k = 0:numel(grouping) - 1
         if k == 0
             continue
         end
-        leader = robots(group(1)).roles(k);
+        leader = robots(group(1)).roles(end - 1);
         leader.AssignFollowers(followers);
         
     end

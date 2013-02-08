@@ -1,9 +1,6 @@
-% Represents a robot and its properties
+% Represents a robot, its components, and properties
 classdef Robot < handle
     
-    % To do: Add sensor properties, motion model, etc.
-    % To do: Abstract sensor to class
-    % To do: Abstract motion to class
     properties
         
         ID;                     % Robot's unique ID
@@ -24,7 +21,7 @@ classdef Robot < handle
     
     methods
         
-        % Split into a Copy() method
+        % Split into a Copy() method?
         function obj = Robot(a)
             
             obj.last_output = zeros(3,1);
@@ -42,10 +39,11 @@ classdef Robot < handle
             obj.pose = a.pose;
             obj.ID = a.ID;
             
-            obj.motionController = a.motionController.Copy();
-            obj.motionModel = a.motionModel.Copy();                  
+            obj.RegisterMotionController(a.motionController.Copy());
+            obj.RegisterMotionModel(a.motionModel.Copy());
+            
             for i = 1:numel(a.sensors)
-                obj.sensors = [obj.sensors, {a.sensors{i}.Copy()}];
+                obj.RegisterSensor(a.sensors{i}.Copy());
             end
             
         end
@@ -98,10 +96,10 @@ classdef Robot < handle
             
         end
         
-        function [] = Step(obj, state)                       
+        function [] = Step(obj, state)
             
             [idMap, ~] = state.BuildMaps();
-            currPose = state.poses(:,idMap.Forward(obj.ID));   
+            currPose = state.poses(:,idMap.Forward(obj.ID));
             obj.beliefs = currPose; %TODO Placeholder for localization results
             
             % Generate control outputs and apply motion
@@ -123,25 +121,25 @@ classdef Robot < handle
             % Don't do any of the below on the first iteration
             % TODO Such a hack..
             if state.time == 0
-                obj.odometry = {};                
+                obj.odometry = {};
             end
             
             % TODO Has to come after odometry! Fix this!!
-            obj.GenerateMeasurements(state);             
+            obj.GenerateMeasurements(state);
             obj.roles(1).PushMeasurements(obj.measurements);
             
             if state.time == 0
                 return
             end
             
-            if ~isempty(obj.roles)            
+            if ~isempty(obj.roles)
                 obj.roles(end).ProcessMeasurements();
             end
             
         end
         
         function [meas] = GetMeasurements(obj)
-                        
+            
             meas = obj.measurements;
             
         end
@@ -165,50 +163,32 @@ classdef Robot < handle
         end
         
         % TODO: Convert to sensor module
-%         function [measurements] = GetMeasurementsRangeBearing(obj, state)
-%             
-%             N = numel(state.poses);
-%             p = obj.pose;
-%             measurements = {};
-%             
-%             for i = 1:N
-%                 
-%                 target_id = state.ids(i);
-%                 if target_id == obj.ID
-%                     continue
-%                 end
-%                 target_pose = state.poses(i);
-%                 rel = target_pose - p;
-%                 if norm(rel.position) > obj.sensor_range
-%                     continue
-%                 end
-%                 
-%                 m = MeasurementRangeBearing(p, target_pose, obj.sensor_covariance);
-%                 m.observer_id = obj.ID;
-%                 m.target_id = target_id;
-%                 measurements = [measurements, {m}];
-%                 
-%             end
-%             
-%         end
-        
-        function [o] = MoveRandom(obj, w)
-            
-            bounds = w.dims/2;
-            p = obj.pose.position;
-            if p(1) > bounds(1)
-                p(1) = bounds(1);
-            elseif p(1) < -bounds(1)
-                p(1) = -bounds(1);
-            end
-            if p(2) > bounds(2)
-                p(2) = bounds(2);
-            elseif p(2) < -bounds(2)
-                p(2) = -bounds(2);
-            end
-            obj.pose.position = p;
-            
-        end
+        %         function [measurements] = GetMeasurementsRangeBearing(obj, state)
+        %
+        %             N = numel(state.poses);
+        %             p = obj.pose;
+        %             measurements = {};
+        %
+        %             for i = 1:N
+        %
+        %                 target_id = state.ids(i);
+        %                 if target_id == obj.ID
+        %                     continue
+        %                 end
+        %                 target_pose = state.poses(i);
+        %                 rel = target_pose - p;
+        %                 if norm(rel.position) > obj.sensor_range
+        %                     continue
+        %                 end
+        %
+        %                 m = MeasurementRangeBearing(p, target_pose, obj.sensor_covariance);
+        %                 m.observer_id = obj.ID;
+        %                 m.target_id = target_id;
+        %                 measurements = [measurements, {m}];
+        %
+        %             end
+        %
+        %         end
         
     end
     
