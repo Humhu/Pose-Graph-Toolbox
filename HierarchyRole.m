@@ -36,9 +36,8 @@ classdef HierarchyRole < handle
             obj.rx_buffer = BinBuffer(1, 50);
             obj.tstep_cnt = 0;
             
-        end
+        end                        
         
-        % TODO: Add AssignLeader method?
         function AssignFollowers(obj, followers)
             
             n = numel(followers);

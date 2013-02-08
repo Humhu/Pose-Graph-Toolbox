@@ -60,10 +60,10 @@ leaf2.time_scale = 1;
 root.time_scale = 3;
 
 % Register roles
+r(1).RegisterRole(root);
 r(1).RegisterRole(leaf0);
 r(2).RegisterRole(leaf1);
 r(3).RegisterRole(leaf2);
-r(1).RegisterRole(root);
 
 % Initialize roles
 s0r = sim.world.state;

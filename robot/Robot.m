@@ -14,7 +14,7 @@ classdef Robot < handle
         motionModel;            % Robot's motion model
         sensors;                % Robot's sensor handles
         
-        roles;                  % Software agents
+        roles;                  % Software agents (roles(end) is leaf)
         
         measurements;           % Current measurements in cell form
         odometry;
@@ -135,7 +135,7 @@ classdef Robot < handle
             end
             
             if ~isempty(obj.roles)            
-                obj.roles(1).ProcessMeasurements();
+                obj.roles(end).ProcessMeasurements();
             end
             
         end
