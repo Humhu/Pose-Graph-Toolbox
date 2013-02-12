@@ -32,7 +32,7 @@ classdef GNSolver < handle
             
             new = GNSolver(obj.tolerance, obj.max_iterations);
             
-        end
+        end        
         
         function [solution, cov] = Solve(obj, sequence)
             

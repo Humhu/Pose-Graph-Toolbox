@@ -4,7 +4,7 @@ classdef SequencePlotter < Plotter2D
     properties
         
         history;        % Data being shown
-        time_z_scale    = 0.1 % Conversion from time to z height
+        time_z_scale    = 1.0; % Conversion from time to z height
         tMap;           % Time to index mapping
         idMap;          % ID to index mapping
         

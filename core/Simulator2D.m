@@ -48,6 +48,7 @@ classdef Simulator2D < handle
             
             obj.world.AddRobots(robots);
             
+            obj.history_ind = 1;
             state = obj.world.GetState();
             obj.history(obj.history_ind) = state;
             obj.history_ind = obj.history_ind + 1;
@@ -99,7 +100,7 @@ classdef Simulator2D < handle
                 state = obj.world.GetState();
                 localHist(localInd) = state;
                 localInd = localInd + 1;
-                obj.plotter.PlotState(state);
+                obj.plotter.PlotSequence(state);
             end
             
             obj.history(obj.history_ind:obj.history_ind + N - 1) = localHist;

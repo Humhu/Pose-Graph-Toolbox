@@ -37,7 +37,8 @@ classdef RelativePoseSensor < handle & Sensor
             
             N = size(state.poses, 2);
             % TODO: Add ID search instead of index
-            p = state.poses(:, obj.ownerID);
+            [idMap, ~] = state.BuildMaps();
+            p = state.poses(:, idMap.Forward(obj.ownerID));
             measurements = {};
             
             for i = 1:N

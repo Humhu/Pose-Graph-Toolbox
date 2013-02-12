@@ -13,13 +13,20 @@ classdef StationaryMotionController < handle & MotionController
             
             if nargin == 0
                 return;
-            end                                    
+            end               
+            
+            if ~isa(smc, 'StationaryMotionController')
+                return
+            end
+            
+            obj.ownerID = smc.ownerID;
+            obj.ref = smc.ref;
             
         end
         
         function [u] = GenerateOutputs(obj, beliefs);
             
-            u =  zeros(3,1);
+            u =  obj.ref;
             
         end
        

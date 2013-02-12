@@ -21,11 +21,12 @@ classdef Robot < handle
     
     methods
         
-        % Split into a Copy() method?
+        % Copies the robot 
         function obj = Robot(a)
             
             obj.last_output = zeros(3,1);
             obj.sensors = {};
+            obj.ID = 0;
             
             if nargin == 0
                 return;
@@ -126,7 +127,10 @@ classdef Robot < handle
             
             % TODO Has to come after odometry! Fix this!!
             obj.GenerateMeasurements(state);
-            obj.roles(1).PushMeasurements(obj.measurements);
+            
+            if ~isempty(obj.roles)
+                obj.roles(1).PushMeasurements(obj.measurements);
+            end
             
             if state.time == 0
                 return

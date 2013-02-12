@@ -10,7 +10,8 @@
 function [robots] = InitRobots(templates, positions)
 
 robots = Robot.empty(1,0);
-id = 0;
+id = templates(1).ID;
+acc = 1;
 
 for i = 1:numel(templates)
    
@@ -22,9 +23,11 @@ for i = 1:numel(templates)
         r = Robot(example);
         r.pose = poses(:,j);
         r.ID = id;
+        r = Robot(r); % HACK!!!
         
         id = id + 1;
-        robots(id) = r;
+        robots(acc) = r;
+        acc = acc + 1;
         
     end
     
