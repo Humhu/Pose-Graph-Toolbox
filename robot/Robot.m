@@ -129,7 +129,7 @@ classdef Robot < handle
             obj.GenerateMeasurements(state);
             
             if ~isempty(obj.roles)
-                obj.roles(1).PushMeasurements(obj.measurements);
+                obj.roles(end).PushMeasurements(obj.measurements);
             end
             
             if state.time == 0

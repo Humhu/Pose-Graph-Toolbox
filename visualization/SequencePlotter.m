@@ -92,7 +92,7 @@ classdef SequencePlotter < Plotter2D
             end
             for i = 1:n
                 p = state.poses(:,i);
-                obj.PlotLabel(p, state.time, num2str(i));
+                obj.PlotLabel(p, state.time, num2str(state.ids(i)));
             end
             hold off;
             

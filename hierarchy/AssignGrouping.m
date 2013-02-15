@@ -5,8 +5,10 @@
 %   grouping - K x 1 cell array, where grouping{k}{j} is a matrix of robot
 %   indices in a group at depth k-1. The first index in the array is the
 %   leader.
+%   time_scales - K x 1 array, where time_scales(k) is the time scale at
+%   depth k -1
 
-function [robots] = AssignGrouping(robots, grouping)
+function [robots] = AssignGrouping(robots, grouping, time_scales)
 
 for k = 0:numel(grouping) - 1
    
@@ -23,6 +25,7 @@ for k = 0:numel(grouping) - 1
             
             role = HierarchyRole(k);            
             followers(j) = role;
+            role.time_scale = time_scales(k + 1);
             
             robot = robots(ind);
             robot.RegisterRole(role);

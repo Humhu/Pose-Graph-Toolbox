@@ -25,6 +25,7 @@ classdef HierarchyPlotter < Plotter2D
             
         end
         
+        % Update to take root as argument instead
         function PlotHierarchy(obj, robots, state)
             
             [obj.idMap, ~] = state.BuildMaps();
@@ -57,6 +58,12 @@ classdef HierarchyPlotter < Plotter2D
             end
             
             set(obj.axe, 'ZTick', 0:mdepth);
+            
+        end
+        
+        function PlotBeliefs(obj, root)
+           
+            
             
         end
         

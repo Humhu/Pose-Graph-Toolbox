@@ -50,7 +50,7 @@ classdef World2D < handle
             end
             
             for i = 1:numel(robs)
-               obj.robots = [obj.robots; robs(i)]; 
+               obj.robots = [obj.robots, robs(i)]; 
             end
             
             obj.state.ids = obj.GetIDs();

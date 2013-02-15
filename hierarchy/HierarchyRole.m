@@ -13,7 +13,7 @@ classdef HierarchyRole < handle
         
         higher_beliefs = {}; % WorldState2D arrays representing higher beliefs
         
-        beliefs = WorldState2D; % WorldState2D array representing local beliefs   
+        beliefs = WorldState2D; % WorldState2D array representing local beliefs
         beliefs_cov;    % Covariance matrix
         solver;     % GNSolver object
         
@@ -31,12 +31,12 @@ classdef HierarchyRole < handle
             obj.level = level;
             obj.solver = GNSolver(1E-3, 100);
             
-            obj.higher_beliefs = cell(1,level);                                                
+            obj.higher_beliefs = cell(1,level);
             obj.tx_buffer = BinBuffer(1, 50);
             obj.rx_buffer = BinBuffer(1, 50);
             obj.tstep_cnt = 0;
             
-        end                        
+        end
         
         % Assigns followers and initializes relevant fields
         % Also assigns followers' leader field
@@ -57,7 +57,7 @@ classdef HierarchyRole < handle
             new = HierarchyRole(obj.level);
             new.solver = obj.solver.Copy();
             
-            new.beliefs = obj.beliefs;            
+            new.beliefs = obj.beliefs;
             new.beliefs_cov = obj.beliefs_cov;
             
             new.leader = obj.leader;
@@ -70,7 +70,7 @@ classdef HierarchyRole < handle
             
             ids = obj.ownerID;
             
-            if isempty(obj.followers)                
+            if isempty(obj.followers)
                 return
             end
             
@@ -79,14 +79,36 @@ classdef HierarchyRole < handle
             
         end
         
-        % Initialize agent's beliefs
-        % TODO: How to initialize position guesses automatically?
-        function Initialize(obj, state)           
+        function [ids] = GetAncestors(obj)
             
-            obj.beliefs(1) = state;
+            ids = obj.GetTeam();
+            for i = 1:numel(obj.followers)
+                ids = [ids, obj.followers(i).GetAncestors()];
+            end
+            ids = unique(ids);
+            
+        end
+        
+        % Initialize agent's beliefs
+        % TODO: How to initialize position guesses?
+        function Initialize(obj, state)
+            
+            ids = obj.GetTeam();
+            substate = state;
+            substate.poses = substate.poses(:,substate.ids == ids);
+            substate.ids = ids;
+            substate = substate.Zero();
+            substate.measurements = {};
+            obj.beliefs = substate;
+            
             obj.tstep_cnt = 0;
-            % TODO: Process instead of tossing measurements?
-            %obj.beliefs(1).measurements = [];
+            
+            for i = 1:numel(obj.followers)
+                f = obj.followers(i);
+                f.Initialize(state);
+                d = obj.beliefs.poses(:, obj.beliefs.ids == f.ownerID);
+                f.InformBeliefs(d, obj.level);
+            end
             
         end
         
@@ -116,7 +138,7 @@ classdef HierarchyRole < handle
         function [z] = ConvertOptimization(obj)
             
             curr_state = obj.beliefs(end);
-            prev_state = obj.beliefs(end - obj.leader.time_scale);            
+            prev_state = obj.beliefs(end - obj.leader.time_scale);
             curr_pose = curr_state.poses(:,1);
             prev_pose = prev_state.poses(:,1);
             
@@ -159,9 +181,9 @@ classdef HierarchyRole < handle
         end
         
         function PushMeasurements(obj, measurements)
-        
+            
             %1. Buffer away non-local measurements
-            team_ids = obj.GetTeam();           
+            team_ids = obj.GetTeam();
             remove = false(numel(measurements), 1);
             for i = 1:numel(measurements)
                 z = measurements{i};
@@ -174,7 +196,7 @@ classdef HierarchyRole < handle
             obj.rx_buffer.Push(1, measurements);
             
         end
-            
+        
         % Process new batch of measurements
         % Should end up being called every obj.time_scale steps
         function ProcessMeasurements(obj)
