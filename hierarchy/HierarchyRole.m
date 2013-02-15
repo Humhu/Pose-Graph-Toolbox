@@ -38,6 +38,8 @@ classdef HierarchyRole < handle
             
         end                        
         
+        % Assigns followers and initializes relevant fields
+        % Also assigns followers' leader field
         function AssignFollowers(obj, followers)
             
             n = numel(followers);
@@ -49,6 +51,7 @@ classdef HierarchyRole < handle
             
         end
         
+        % Creates a shallow copy of this HierarchyRole object
         function [new] = Copy(obj)
             
             new = HierarchyRole(obj.level);
@@ -77,7 +80,7 @@ classdef HierarchyRole < handle
         end
         
         % Initialize agent's beliefs
-        % TODO: How to initialize position guesses?
+        % TODO: How to initialize position guesses automatically?
         function Initialize(obj, state)           
             
             obj.beliefs(1) = state;
@@ -87,16 +90,31 @@ classdef HierarchyRole < handle
             
         end
         
-        % Inform this agent of new higher level beliefs
+        % Inform this agent of new higher level belief WorldState2D
         function InformBeliefs(obj, beliefs, k)
             
             obj.higher_beliefs{k + 1} = beliefs;
             
         end
         
-        % Converts local beliefs into proper time scale
-        % We only send the optimized results for the group leader (i = 1)
+        % Query this agent's beliefs
+        function [beliefs] = QueryBeliefs(obj)
+           
+            beliefs = obj.higher_beliefs;
+            
+        end
+        
+        % Query this agent's positions in all higher reference frames
+        function [positions] = QueryPosition(obj)
+            
+            
+            
+        end
+        
+        % Compresses local beliefs of trajectory into proper time scale
+        % We only send the optimized results for ourselves (leader i = 1)
         function [z] = ConvertOptimization(obj)
+            
             curr_state = obj.beliefs(end);
             prev_state = obj.beliefs(end - obj.leader.time_scale);            
             curr_pose = curr_state.poses(:,1);
@@ -125,8 +143,6 @@ classdef HierarchyRole < handle
         
         % Transmit measurements to this agent
         % fid is the follower robot ownerID
-        % TODO: How to deal with outages, multi-step bursts of
-        % measurements?
         function InformMeasurements(obj, measurements, fid)
             
             ids = [obj.followers.ownerID];

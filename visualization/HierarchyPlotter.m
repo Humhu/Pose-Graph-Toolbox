@@ -46,7 +46,8 @@ classdef HierarchyPlotter < Plotter2D
                     
                     if isempty(job.leader)
                        pose = robots(obj.idMap.Forward(job.ownerID)).pose;
-                       obj.PlotRobot(pose, job.level, 'k', 1.0);
+                       obj.PlotRobot(pose, job.level, 'r', 1.0);
+                       obj.PlotLabel(pose, job.level, num2str(job.ownerID));
                     end
                     
                     obj.PlotFollowers(robots, job);
@@ -77,7 +78,8 @@ classdef HierarchyPlotter < Plotter2D
                 floc(3) = f.level;
                 
                 obj.PlotLine(lloc, floc);
-                obj.PlotRobot(fpose, f.level, 'k', 1.0);
+                obj.PlotRobot(fpose, f.level, 'r', 1.0);
+                obj.PlotLabel(fpose, f.level, num2str(f.ownerID));
                 
             end
             
