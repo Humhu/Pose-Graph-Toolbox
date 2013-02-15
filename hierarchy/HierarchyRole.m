@@ -11,7 +11,9 @@ classdef HierarchyRole < handle
         leader;     % Reference to leader HierarchyRole object
         followers;  % Array of follower HierarchyRole objects
         
-        higher_beliefs = {}; % WorldState2D arrays representing higher beliefs
+        higher_beliefs; % WorldState2D array representing higher beliefs
+        % Each WorldState2D at index i corresponds to the relative pose of
+        % the ancestor at level (i + 1) wrt ancestor at level (i).
         
         beliefs = WorldState2D; % WorldState2D array representing local beliefs
         beliefs_cov;    % Covariance matrix
@@ -31,7 +33,7 @@ classdef HierarchyRole < handle
             obj.level = level;
             obj.solver = GNSolver(1E-3, 100);
             
-            obj.higher_beliefs = cell(1,level);
+            obj.higher_beliefs = WorldState2D.empty(level, 0);
             obj.tx_buffer = BinBuffer(1, 50);
             obj.rx_buffer = BinBuffer(1, 50);
             obj.tstep_cnt = 0;
@@ -90,12 +92,11 @@ classdef HierarchyRole < handle
         end
         
         % Initialize agent's beliefs
-        % TODO: How to initialize position guesses?
         function Initialize(obj, state)
             
             ids = obj.GetTeam();
             substate = state;
-            substate.poses = substate.poses(:,substate.ids == ids);
+            substate.poses = substate.poses(:,ismember(substate.ids, ids));
             substate.ids = ids;
             substate = substate.Zero();
             substate.measurements = {};
@@ -112,54 +113,36 @@ classdef HierarchyRole < handle
             
         end
         
-        % Inform this agent of new higher level belief WorldState2D
-        function InformBeliefs(obj, beliefs, k)
+        % Informs the agent of updated higher-level belief states
+        % Beliefs should be an ordered array of measurements
+        function UpdateBeliefs(obj, beliefs)
             
-            obj.higher_beliefs{k + 1} = beliefs;
+            obj.BuildEstimates(beliefs);
+            % Update local graph times
+            obj.TrimGraph(beliefs(end).target_time);
+            
+            % Pass down to followers
+            for i = 1:numel(obj.followers)
+               f = obj.followers(i);
+               s_time = obj.beliefs(1).time;
+               e_time = obj.beliefs(end).time;
+               z = obj.ExtractLocalRelation(obj.ownerID, s_time, ...
+                   f.ownerID, e_time);
+               f.UpdateBeliefs([beliefs, z]);
+            end
             
         end
         
-        % Query this agent's beliefs
-        function [beliefs] = QueryBeliefs(obj)
-           
-            beliefs = obj.higher_beliefs;
+        % Trims the local graph to start from start_time
+        function TrimGraph(obj, start_time)
             
         end
         
-        % Query this agent's positions in all higher reference frames
-        function [positions] = QueryPosition(obj)
-            
-            
-            
-        end
-        
-        % Compresses local beliefs of trajectory into proper time scale
-        % We only send the optimized results for ourselves (leader i = 1)
-        function [z] = ConvertOptimization(obj)
-            
-            curr_state = obj.beliefs(end);
-            prev_state = obj.beliefs(end - obj.leader.time_scale);
-            curr_pose = curr_state.poses(:,1);
-            prev_pose = prev_state.poses(:,1);
-            
-            N = numel(obj.GetTeam());
-            T = numel(obj.beliefs);
-            
-            z = MeasurementRelativePose(curr_pose, prev_pose, zeros(3));
-            z.observer_id = obj.ownerID;
-            z.target_id = obj.ownerID;
-            z.observer_time = curr_state.time;
-            z.target_time = prev_state.time;
-            
-            prev_start = 3*N*(T - obj.leader.time_scale - 1) + 1;
-            prev_end = prev_start + 2;
-            curr_start = 3*N*(T - 1) + 1;
-            curr_end  = curr_start + 2;
-            inds = [prev_start:prev_end, curr_start:curr_end];
-            
-            fullcov = obj.beliefs_cov(inds, inds);
-            b = [-eye(3), eye(3)];
-            z.covariance = b*fullcov*b';
+        % Translates an extra-group measurement to the appropriate frame
+        % and level
+        function [m_trans] = TranslateMeasurement(obj, m)
+            %TODO: IMPLEMENT ME!
+            locals = obj.GetTeam();
             
         end
         
@@ -180,6 +163,8 @@ classdef HierarchyRole < handle
             
         end
         
+        % Input measurements into this agent for processing, whether from a
+        % robot or follower agent
         function PushMeasurements(obj, measurements)
             
             %1. Buffer away non-local measurements
@@ -225,11 +210,76 @@ classdef HierarchyRole < handle
             end
             
             if obj.tstep_cnt >= obj.leader.time_scale;
-                op_z = obj.ConvertOptimization();
+                start_t = obj.beliefs(1).time;
+                end_t = obj.beliefs(end).time;
+                op_z = obj.ExtractLocalRelation(obj.ownerID, start_t, ...
+                                obj.ownerID, end_t);
                 meas = [obj.tx_buffer.PopAll(), {op_z}];
                 obj.leader.InformMeasurements(meas, obj.ownerID);
                 obj.tstep_cnt = 0; % Because we popped all
             end
+            
+        end
+        
+    end
+    
+    methods(Access = private)
+                
+        % Builds this agent's positions in all higher reference frames
+        % given a chain of relative measurements. The chain should be
+        % ordered with measurements(1) corresponding to root->f1, and
+        % measurements(end) corresponding to fn->obj
+        function BuildEstimates(obj, measurements)
+            
+            if numel(measurements) ~= obj.level
+                error(['Wrong number of measurements given to BuildEstimates: ', ...
+                    'level: %d, #meas: %d'], obj.level, numel(measurements));
+            end
+            
+            % Initialize all as last link
+            for i = 1:obj.level
+                obj.higher_beliefs(i) = measurements(end);
+            end
+            
+            % Build chain
+            for i = obj.level-1:-1:1
+                m = measurements(i);
+                obj.higher_beliefs(i) = m.Compose(obj.higher_beliefs(i));
+            end
+            
+        end
+        
+        % Extracts a specified relation from the local optimized graph        
+        function [z] = ExtractLocalRelation(obj, start_id, start_time, ...
+                end_id, end_time)
+            
+            [idMap, tMap] = obj.beliefs.BuildMaps();
+            
+            s_id = idMap.Forward(start_id);
+            s_time = tMap.Forward(start_time);
+            e_id = idMap.Forward(end_id);
+            e_time = tMap.Forward(end_time);
+            
+            start_pose = obj.beliefs(s_time).poses(:,s_id);
+            end_pose = obj.beliefs(e_time).poses(:,e_id);
+                        
+            z = MeasurementRelativePose(start_pose, end_pose);
+            z.observer_id = start_id;
+            z.observer_time = start_time;
+            z.target_id = end_id;
+            z.target_time = end_time;
+                                    
+            N = numel(obj.GetTeam());                                                           
+            
+            prev_start = 3*N*(s_time - 1) + (s_id - 1) + 1;
+            prev_end = prev_start + 2;
+            curr_start = 3*N*(e_time - 1) + (e_id - 1) + 1;
+            curr_end  = curr_start + 2;
+            inds = [prev_start:prev_end, curr_start:curr_end];
+            
+            fullcov = obj.beliefs_cov(inds, inds);
+            b = [-eye(3), eye(3)];
+            z.covariance = b*fullcov*b';
             
         end
         

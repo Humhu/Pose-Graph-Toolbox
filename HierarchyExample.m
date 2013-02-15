@@ -45,7 +45,7 @@ r0.RegisterSensor(rps);
 %% Place robots
 % Generate positions
 center = zeros(3,1);
-d = 2;
+d = 3;
 b = 3;
 f = 0.4;
 r = 0.25;
@@ -60,7 +60,7 @@ positions(3,:) = wrapToPi(positions(3,:));
 % Generate robots
 robots = InitRobots(r0, {positions});
 grouping = GenerateGrouping(d, b);
-time_scales = [3;1];
+time_scales = [9;3;1];
 AssignGrouping(robots, grouping, time_scales);
 
 % Add robots to simulator
