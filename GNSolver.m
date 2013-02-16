@@ -126,7 +126,12 @@ classdef GNSolver < handle
             H(1:3,1:3) = H(1:3,1:3) + J0'*info*J0;
             b(1:3) = b(1:3) + e0;
             
-            % Solve for state vector increment
+            % Clean up states with no information and solve for increment
+            for i = 1:size(H,1)
+               if H(i,i) == 0
+                   H(i,i) = 1;
+               end
+            end
             delta = H\-b;
             
             % Apply state increment to state

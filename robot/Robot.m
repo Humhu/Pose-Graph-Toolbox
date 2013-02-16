@@ -104,26 +104,21 @@ classdef Robot < handle
             obj.beliefs = currPose; %TODO Placeholder for localization results
             
             % Generate control outputs and apply motion
+            % TODO Have u generated in robot frame
             u = obj.motionController.GenerateOutputs(obj.beliefs);
             obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);
             
-            prevPose = currPose - obj.last_output;
-            prevPose(3) = wrapToPi(prevPose(3));
+            nextPose = currPose + obj.last_output;
+            nextPose(3) = wrapToPi(nextPose(3));
             obj.last_output = u;
             
             % TODO generalize to sensor and move to module
-            obj.odometry = MeasurementRelativePose(currPose, prevPose, zeros(3));
+            obj.odometry = MeasurementRelativePose(currPose, nextPose, zeros(3));
             obj.odometry.covariance = obj.motionModel.covariance;
             obj.odometry.observer_id = obj.ID;
             obj.odometry.target_id = obj.ID;
             obj.odometry.observer_time = state.time;
-            obj.odometry.target_time = state.time - 1;
-            
-            % Don't do any of the below on the first iteration
-            % TODO Such a hack..
-            if state.time == 0
-                obj.odometry = {};
-            end
+            obj.odometry.target_time = state.time + 1;
             
             % TODO Has to come after odometry! Fix this!!
             obj.GenerateMeasurements(state);
@@ -132,12 +127,8 @@ classdef Robot < handle
                 obj.roles(end).PushMeasurements(obj.measurements);
             end
             
-            if state.time == 0
-                return
-            end
-            
-            if ~isempty(obj.roles)
-                obj.roles(end).ProcessMeasurements();
+            for i = 1:numel(obj.roles)
+               obj.roles(i).Step(); 
             end
             
         end
