@@ -29,7 +29,7 @@ mm.output_wrapping = boolean([0,0,1]);
 
 % Sensor
 rps = RelativePoseSensor();
-rps.maxRange = Inf;
+rps.maxRange = 0.4;
 rps.mean = [0;0;0];
 rps.covariance = [0.01^2,   0,      0;
                 0,        0.01^2, 0;
@@ -61,7 +61,7 @@ l.RegisterSensor(rps);
 center = zeros(3,1);
 d = 2;
 b = 4;
-f = 0.4;
+f = 0.5;
 r = 0.25;
 covariance = zeros(3);
 seed = 0;

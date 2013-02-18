@@ -90,6 +90,10 @@ classdef Simulator2D < handle
         function Initialize(obj)
             
             obj.world.Step();
+            obj.world.state.time = 0;
+            obj.history(1) = obj.world.state;            
+            obj.plotter.Clear();
+            obj.plotter.PlotSequence(obj.world.state);
             
         end
         

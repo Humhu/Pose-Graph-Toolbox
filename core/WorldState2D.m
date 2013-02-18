@@ -39,7 +39,7 @@ classdef WorldState2D
             times = [obj.time];
             l = max(times) - min(times);
             
-        end
+        end                
         
         % Build ID and time to index SearchMap objects
         function [idMap, tMap] = BuildMaps(obj)
