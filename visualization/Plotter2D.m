@@ -112,6 +112,7 @@ classdef Plotter2D < handle
             
         end
         
+        % Plots a covariance ellipse
         function PlotEllipse(obj, p, t, cov)
             
             cov = cov(1:2,1:2);

@@ -63,7 +63,18 @@ classdef HierarchyPlotter < Plotter2D
         
         function PlotBeliefs(obj, root)
            
-            
+            r = root;
+            while(~isempty(r))
+                curr = r(1);
+                global_z = curr.estimates(1);
+                p = global_z.double();
+                t = global_z.target_time;
+                cov = global_z.covariance;
+                obj.PlotRobot(p, t, 'r', 1.0);
+                obj.PlotLabel(p, t, num2str(curr.ownerID));
+                obj.PlotEllipse(p, t, cov);
+                r = [r(2:end), curr.followers];
+            end
             
         end
         

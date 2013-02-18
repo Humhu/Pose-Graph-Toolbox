@@ -8,16 +8,17 @@ classdef HierarchyRole < handle
         time;       % Internal time counter
         time_scale; % Time step size
         
-        ownerID;         % ownerID of corresponding robot
+        ownerID;    % ownerID of corresponding robot
         leader;     % Reference to leader HierarchyRole object
         followers;  % Array of follower HierarchyRole objects
         
-        estimates;
-        higher_beliefs; % WorldState2D array representing higher beliefs
-        % Each WorldState2D at index i corresponds to the relative pose of
+        estimates;  % MeasurementRelativePose array representing position
+        % estimates relative to ancestors.
+        higher_beliefs; % MeasurementRelativePose array representing ancestor beliefs
+        % Each Measurement at index i corresponds to the relative pose of
         % the ancestor at level (i + 1) wrt ancestor at level (i).
         
-        beliefs = WorldState2D; % WorldState2D array representing local beliefs
+        local_beliefs = WorldState2D; % WorldState2D array representing local beliefs
         beliefs_cov;    % Covariance matrix
         solver;     % GNSolver object
         
@@ -34,7 +35,7 @@ classdef HierarchyRole < handle
             obj.level = level;
             obj.solver = GNSolver(1E-3, 100);
             
-            obj.higher_beliefs = MeasurementRelativePose.empty(1, 0); 
+            obj.higher_beliefs = MeasurementRelativePose.empty(1, 0);
             obj.estimates = MeasurementRelativePose.empty(1,0);
             obj.tx_buffer = BinBuffer(1, 50);
             obj.rx_buffer = BinBuffer(1, 50);
@@ -61,7 +62,7 @@ classdef HierarchyRole < handle
             new = HierarchyRole(obj.level);
             new.solver = obj.solver.Copy();
             
-            new.beliefs = obj.beliefs;
+            new.local_beliefs = obj.local_beliefs;
             new.beliefs_cov = obj.beliefs_cov;
             
             new.leader = obj.leader;
@@ -69,6 +70,7 @@ classdef HierarchyRole < handle
             
         end
         
+        % TODO: Clean up naming for these Get/Traverse type methods
         % Return indices of team (self and followers)
         function [ids] = GetTeam(obj)
             
@@ -83,43 +85,77 @@ classdef HierarchyRole < handle
             
         end
         
-        function [ids] = GetAncestors(obj)
+        % Get IDs of all ancestors FIX
+        function [ids] = GetDescendants(obj)
             
             ids = obj.GetTeam();
             for i = 1:numel(obj.followers)
-                ids = [ids, obj.followers(i).GetAncestors()];
+                ids = [ids, obj.followers(i).GetDescendants()];
             end
             ids = unique(ids);
             
         end
         
-        function [ids] = GetDescendants(obj)
+        % Return ancestor k levels above
+        function [anc] = GetAncestor(obj, k)
+        
+            anc = obj;
+            for i = 1:k
+               anc = anc.leader; 
+            end
             
         end
         
-        % Initialize agent's beliefs
+        % Queries position relative to level k leader
+        % k = 0 returns relative to root, k = -1 returns global estimate
+        function [rel] = QueryRelation(obj, k)
+            
+            if k == obj.level
+                rel = MeasurementRelativePose(zeros(3,1), zeros(3,1), zeros(3));
+                rel.observer_id = obj.ownerID;
+                rel.observer_time = obj.time;
+                rel.target_id = obj.ownerID;
+                rel.target_time = obj.time;
+                rel.covariance = zeros(3);
+            else
+                rel = obj.estimates(k+2);
+            end
+            
+        end
+            
+        % Initialize agent's local_beliefs
         function Initialize(obj, state)
             
             ids = obj.GetTeam();
             substate = state;
             substate.poses = substate.poses(:,ismember(substate.ids, ids));
             substate.ids = ids;
-            substate = substate.Zero();
+            substate = substate.Zero(); % Leader is at origin
             substate.measurements = {}; % Do we want this?
-            obj.beliefs = substate;
+            obj.local_beliefs = substate;
             N = substate.GetDimension();
-            obj.beliefs_cov = 1E-6*eye(3*N, 3*N);
+            obj.beliefs_cov = 1E-6*eye(3*N, 3*N); % TODO: Hard-coded initialization prior
             
             obj.time = 0;
             
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
-                f.Initialize(state);                                                
+                f.Initialize(state);
             end
             
             if obj.level ~= 0
                 return
             end
+            
+            global_pose = state.poses(:,1);
+            global_belief = MeasurementRelativePose(zeros(3,1), global_pose, zeros(3));
+            global_belief.observer_id = -1;
+            global_belief.observer_time = 0;
+            global_belief.target_id = obj.ownerID;
+            global_belief.target_time = 0;
+            global_belief.covariance = 1E-6*eye(3);
+            
+            obj.UpdateBeliefs(global_belief);
             
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
@@ -132,21 +168,21 @@ classdef HierarchyRole < handle
         
         % Informs the agent of updated higher-level belief states
         % Beliefs should be an ordered array of measurements
-        function UpdateBeliefs(obj, beliefs)
+        function UpdateBeliefs(obj, local_beliefs)
             
-            obj.higher_beliefs = beliefs;
+            obj.higher_beliefs = local_beliefs;
             
             % Update local position estimates
             obj.BuildEstimates(obj.higher_beliefs);
             
             %TODO: Update local graph times
-            obj.TrimGraph(beliefs(end).target_time);
+            obj.TrimGraph(local_beliefs(end).target_time);
             
             % Pass down to followers
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
-                s_time = obj.beliefs(1).time;
-                e_time = obj.beliefs(end).time;
+                s_time = obj.local_beliefs(1).time;
+                e_time = obj.local_beliefs(end).time;
                 z = obj.ExtractLocalRelation(obj.ownerID, s_time, ...
                     f.ownerID, e_time);
                 f.UpdateBeliefs([obj.higher_beliefs, z]);
@@ -154,18 +190,32 @@ classdef HierarchyRole < handle
             
         end
         
-        % Trims the local graph to start from start_time
-        function TrimGraph(obj, start_time)
-            
-            
-            
-        end
-        
         % Translates an extra-group measurement to the appropriate frame
         % and level
-        function [m_trans] = TranslateMeasurement(obj, m)
-            %TODO: IMPLEMENT ME!
-            locals = obj.GetTeam();
+        % Currently we assume that only the target ID can be extra-group
+        function TranslateMeasurement(obj, m)
+            
+            local_ids = obj.GetTeam();
+            m
+            % Check target
+            if ~ismember(m.target_id, local_ids)
+                % Find target's corresponding role agent and LCA
+                other = FindLMR(obj, m.target_id);
+                common = FindLCA(obj, other);
+                
+                % Determine proxies to translate to
+                local_proxy = obj.GetAncestor(obj.level - common.level - 1);
+                other_proxy = other.GetAncestor(other.level - common.level - 1);
+                
+                local_relation = obj.QueryRelation(local_proxy.level);
+                other_relation = other.QueryRelation(other_proxy.level);
+                
+                m = local_relation.Compose(m);
+                m = m.Compose(other_relation.ToInverse());
+                common.PushMeasurements(m);
+                
+            end
+            
             
         end
         
@@ -189,26 +239,25 @@ classdef HierarchyRole < handle
         % Input measurements into this agent for processing, whether from a
         % robot or follower agent
         function PushMeasurements(obj, measurements)
-      
+            
             obj.rx_buffer.Push(1, measurements);
             
         end
         
         % Process internal functions. Should be called once every time
         % step.
-        function Step(obj)
-            
-            obj.time = obj.time + 1;
+        function Step(obj)                        
             
             % If there are no new measurements, there's nothing to do!
             if obj.rx_buffer.IsEmpty()
+                obj.time = obj.time + 1;
                 return
             end
             
             measurements = obj.rx_buffer.PopAll();
             
             % Process measurements
-            local_times = [obj.beliefs.time];                                    
+            local_times = [obj.local_beliefs.time];
             start_t = local_times(1);
             end_t = local_times(end);
             input_times = [];
@@ -217,10 +266,10 @@ classdef HierarchyRole < handle
             remove = false(numel(measurements), 1);
             
             for i = 1:numel(measurements)
-                z = measurements{i};                
+                z = measurements{i};
                 if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
-                    z = obj.TranslateMeasurement(z); %Think about this...
-                    obj.tx_buffer.Push(1,z);
+                    obj.TranslateMeasurement(z); % Sends it to a better place
+                    %obj.tx_buffer.Push(1,z);
                     remove(i) = 1;
                 else
                     input_times = [input_times, z.observer_time, z.target_time];
@@ -229,6 +278,7 @@ classdef HierarchyRole < handle
             end
             
             % Remove buffered measurements and find new times
+            % TODO: Fix!
             measurements(remove) = [];
             input_times = unique(input_times); % Also sorts ascending
             new_times = input_times(input_times > start_time);
@@ -236,35 +286,38 @@ classdef HierarchyRole < handle
             % Add new time slice to belief sequence if needed
             for i = 1:numel(new_times)
                 t = new_times(i);
-                new_state = obj.beliefs(end);                
+                new_state = obj.local_beliefs(end);
                 new_state.measurements = measurements(obs_times == t);
                 new_state.time = t;
-                obj.beliefs = [obj.beliefs, new_state];
+                obj.local_beliefs = [obj.local_beliefs, new_state];
             end
-                
+            
             %3. Perform local optimization if graph updated
-            [obj.beliefs, obj.beliefs_cov] = obj.solver.Solve(obj.beliefs);
+            [obj.local_beliefs, obj.beliefs_cov] = obj.solver.Solve(obj.local_beliefs);
             
             % Communicate only at fixed intervals
             if mod(obj.time, obj.time_scale) ~= 0
+                obj.time = obj.time + 1;
                 return
             end
             
-            % Inform followers of latest beliefs
+            % Inform followers of latest local_beliefs
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
                 f_bel = obj.ExtractLocalRelation(obj.ownerID, start_t, ...
-                                f.ownerID, end_t);
+                    f.ownerID, end_t);
                 obj.followers(i).UpdateBeliefs([obj.higher_beliefs, f_bel]);
             end
             
             % Inform leader of new measurements
-            if ~isempty(obj.leader)                
+            if ~isempty(obj.leader)
                 op_z = obj.ExtractLocalRelation(obj.ownerID, start_t, ...
                     obj.ownerID, end_t);
                 meas = [obj.tx_buffer.PopAll(), {op_z}];
                 obj.leader.InformMeasurements(meas, obj.ownerID);
             end
+            
+            obj.time = obj.time + 1;
             
         end
         
@@ -278,20 +331,22 @@ classdef HierarchyRole < handle
         % measurements(end) corresponding to fn->obj
         function BuildEstimates(obj, measurements)
             
-            if numel(measurements) ~= obj.level
+            if numel(measurements) ~= obj.level + 1
                 error(['Wrong number of measurements given to BuildEstimates: ', ...
                     'level: %d, #meas: %d'], obj.level, numel(measurements));
             end
             
             % Initialize all as last link
-            for i = 1:obj.level
+            for i = 1:obj.level+1
                 obj.estimates(i) = measurements(end);
             end
             
-            % Build chain
-            for i = obj.level-1:-1:1
+            % Build chain by composing measurements in reverse-order
+            for i = obj.level:-1:1
                 m = measurements(i);
-                obj.estimates(i) = m.Compose(obj.estimates(i));
+                for j = i:-1:1
+                    obj.estimates(j) = m.Compose(obj.estimates(j));
+                end
             end
             
         end
@@ -300,15 +355,15 @@ classdef HierarchyRole < handle
         function [z] = ExtractLocalRelation(obj, start_id, start_time, ...
                 end_id, end_time)
             
-            [idMap, tMap] = obj.beliefs.BuildMaps();
+            [idMap, tMap] = obj.local_beliefs.BuildMaps();
             
             s_id = idMap.Forward(start_id);
             s_time = tMap.Forward(start_time);
             e_id = idMap.Forward(end_id);
             e_time = tMap.Forward(end_time);
             
-            start_pose = obj.beliefs(s_time).poses(:,s_id);
-            end_pose = obj.beliefs(e_time).poses(:,e_id);
+            start_pose = obj.local_beliefs(s_time).poses(:,s_id);
+            end_pose = obj.local_beliefs(e_time).poses(:,e_id);
             
             z = MeasurementRelativePose(start_pose, end_pose, zeros(3));
             z.observer_id = start_id;
@@ -327,6 +382,15 @@ classdef HierarchyRole < handle
             fullcov = obj.beliefs_cov(inds, inds);
             b = [-eye(3), eye(3)];
             z.covariance = b*fullcov*b';
+            
+        end
+        
+        % Trims the local graph to start from start_time
+        function TrimGraph(obj, start_time)
+            
+            [~, tMap] = obj.local_beliefs.BuildMaps();
+            newStart = tMap.Forward(start_time);
+            obj.local_beliefs = obj.local_beliefs(newStart:end);
             
         end
         

@@ -71,7 +71,7 @@ classdef World2D < handle
             
             obj.state.time = obj.state.time + 1;
             obj.state.poses = obj.GetPoses();
-            obj.GenerateMeasurements();
+            obj.GetMeasurements();
             
         end
         

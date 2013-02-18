@@ -80,7 +80,7 @@ classdef MeasurementRelativePose < Measurement
         function [m] = Compose(obj, z)
             
             if(obj.target_id ~= z.observer_id)
-                error('Mismatching IDs in composition: a.tar = %d, b.tar = %d', ...
+                error('Mismatching IDs in composition: a.tar = %d, b.obs = %d', ...
                     obj.target_id, z.observer_id);
             end
             if(obj.target_time ~= z.observer_time)

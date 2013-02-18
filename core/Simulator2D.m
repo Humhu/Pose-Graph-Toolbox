@@ -85,6 +85,14 @@ classdef Simulator2D < handle
             obj.recording = false;
         end
         
+        % Call after adding robots and before stepping to generate first
+        % state correctly
+        function Initialize(obj)
+            
+            obj.world.Step();
+            
+        end
+        
         % Proceed N time steps
         function [] = Step(obj, N)
             
