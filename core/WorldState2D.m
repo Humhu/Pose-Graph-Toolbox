@@ -66,7 +66,8 @@ classdef WorldState2D
             p(1:2,:) = R*p(1:2,:);
             p(3,:) = bsxfun(@plus, p(3,:), theta);
             
-            T = numel(rotated);
+            N = rotated.GetDimension();
+            T = numel(rotated);            
             for i = 1:T
                 rotated(i).poses = p(:,(N*(i-1) + 1):(N*i));
             end

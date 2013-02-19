@@ -271,14 +271,11 @@ classdef HierarchyRole < handle
             measurements = obj.rx_buffer.PopAll();
                         
             % Transmit all non-local measurements            
-            start_t = obj.local_beliefs(1).time;
-            end_t = obj.local_beliefs(end).time;
             team_ids = obj.GetTeam();
             remove = false(numel(measurements), 1);                        
             for i = 1:numel(measurements)
                 z = measurements{i};
-                if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
-                    z
+                if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)                    
                     obj.TranslateMeasurement(z); % Sends it to a better place                    
                     remove(i) = 1;                    
                 end
@@ -310,6 +307,17 @@ classdef HierarchyRole < handle
                 obj.level, obj.time)
             [obj.local_beliefs, obj.beliefs_cov] = obj.solver.Solve(obj.local_beliefs);
             
+            % Inform leader of new local movement
+            start_t = obj.local_beliefs(1).time;
+            if ~isempty(obj.leader)
+                if obj.time == obj.last_sent + obj.leader.time_scale
+                    op_z = obj.ExtractLocalRelation(obj.ownerID, start_t, ...
+                        obj.ownerID, obj.time);
+                    meas = {op_z};
+                    obj.leader.PushMeasurements(meas);
+                end
+            end
+            
             % Communicate only at fixed intervals
             if mod(obj.time, obj.time_scale) ~= 0
                 obj.time = obj.time + 1;
@@ -317,26 +325,22 @@ classdef HierarchyRole < handle
             end
             
             % Inform followers of latest local_beliefs
+            if isempty(obj.followers)
+                obj.time = obj.time + 1;
+                return
+            end
+            
+            
             end_t = obj.local_beliefs(end).time;
+            fprintf('Informing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
+                obj.level, obj.time)
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
                 f_bel = obj.ExtractLocalRelation(obj.ownerID, start_t, ...
                     f.ownerID, end_t);
                 obj.followers(i).UpdateBeliefs([obj.higher_beliefs, f_bel]);
             end
-                
-            if isempty(obj.leader)
-                obj.time = obj.time + 1;
-                return;
-            end
             
-            % Inform leader of new local movement
-            if obj.time == obj.last_sent + obj.leader.time_scale
-                op_z = obj.ExtractLocalRelation(obj.ownerID, start_t, ...
-                    obj.ownerID, obj.time);
-                meas = {op_z};
-                obj.leader.PushMeasurements(meas);
-            end
             obj.time = obj.time + 1;
             
         end

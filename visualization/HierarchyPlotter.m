@@ -66,14 +66,13 @@ classdef HierarchyPlotter < Plotter2D
             r = root;
             while(~isempty(r))
                 curr = r(1);
-                global_z = curr.estimates(1);
-                p = global_z.double();
-                t = global_z.target_time;
-                cov = global_z.covariance;
-                obj.PlotRobot(p, t, 'r', 1.0);
-                obj.PlotLabel(p, t, num2str(curr.ownerID));
-                obj.PlotEllipse(p, t, cov);
-                r = [r(2:end), curr.followers];
+                r(1) = [];
+                graph = curr.local_beliefs;
+                graph_root_pos = curr.estimates(1);                
+                graph = graph.Rotate(graph_root_pos.rotation);
+                graph = graph.Shift(graph_root_pos.displacement);
+                obj.PlotGraph(graph);
+                r = [r, curr.followers];
             end
             
         end
@@ -81,6 +80,23 @@ classdef HierarchyPlotter < Plotter2D
     end
     
     methods(Access = protected)
+        
+        function PlotGraph(obj, sequence)
+            
+            [~, tMap] = sequence.BuildMaps();
+            for t = 1:numel(sequence)
+                state = sequence(t);
+                true_t = tMap.Backward(t);
+                for i = 1:state.GetDimension()
+                    p = state.poses(:,i);
+                    id = state.ids(i);
+                    %c = obj.colors(idMap.Forward(id),:); % FIX!!
+                    c = obj.colors(id + 1, :);
+                    obj.PlotRobot(p, true_t, c, 1.0);
+                end
+            end
+            
+        end
         
         function PlotFollowers(obj, robots, role)
             
