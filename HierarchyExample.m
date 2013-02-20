@@ -45,7 +45,7 @@ r0.RegisterSensor(rps);
 %% Place robots
 % Generate positions
 center = zeros(3,1);
-d = 3;
+d = 2;
 b = 3;
 f = 0.4;
 r = 0.25;

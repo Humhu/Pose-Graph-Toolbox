@@ -44,8 +44,8 @@ classdef GNSolver < handle
             while(norm(rem) > obj.tolerance)
                 [solution, rem, cov] = obj.Iterate(solution, idMap, tMap);
                 obj.iterations = obj.iterations + 1;
-                fprintf(['Iteration: ', num2str(obj.iterations), ...
-                    '\tDelta max: ', num2str(norm(rem)), '\n']);
+                %fprintf(['Iteration: ', num2str(obj.iterations), ...
+                %    '\tDelta max: ', num2str(norm(rem)), '\n']);
             end
             
         end

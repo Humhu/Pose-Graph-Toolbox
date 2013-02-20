@@ -437,12 +437,26 @@ classdef HierarchyRole < handle
             
         end
         
-        % Trims the local graph to start from start_time
-        function TrimGraph(obj, start_time)
+        % Trims the local graph to start from root_time
+        function TrimGraph(obj, root_time)
             
             [~, tMap] = obj.local_beliefs.BuildMaps();
-            newStart = tMap.Forward(start_time);
-            obj.local_beliefs = obj.local_beliefs(newStart:end);
+                        
+            % "Marginalize" past information into relations at new time
+            % TODO: This doesn't seem right. Should instead translate +
+            % compress old measurements into the new frame
+            marginalized_rel = cell(numel(obj.followers) + 1, 1);
+            for i = 1:numel(obj.followers)
+                f_id = obj.followers(i).ownerID;
+                rel = obj.ExtractLocalRelation(obj.ownerID, root_time, ...
+                    f_id, root_time);
+                marginalized_rel{i} = rel;
+            end
+            
+            root_ind = tMap.Forward(root_time);
+            obj.local_beliefs = obj.local_beliefs(root_ind:end);
+            obj.local_beliefs(1).measurements = ...
+                [obj.local_beliefs(1).measurements, marginalized_rel{i}];
             
         end
         

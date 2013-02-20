@@ -14,20 +14,28 @@ classdef (Abstract) Measurement
        
         % Checks to see if two measurements involve the same IDs
         function [match] = SameAgents(obj, other)
-            match = obj.observer_id == other.target_id && ...
-                    obj.target_id == other.target_id;
+            if isempty(other)
+                match = false(1);
+                return
+            end
+            match = obj.observer_id == [other.observer_id] & ...
+                    obj.target_id == [other.target_id];
         end
         
         % Checks to see if two measurements are at the same times
         function [match] = SameTimes(obj, other)
-            match = obj.observer_time == other.observer_time && ...
-                    obj.target_time == other.target_time;
+            if isempty(other)
+                match = false(1);
+                return
+            end
+            match = obj.observer_time == [other.observer_time] & ...
+                    obj.target_time == [other.target_time];
         end
         
         % Checks to see if two measurements are at the same time and
         % involve the same IDs
         function [match] = SameRelation(obj, other)
-           match = obj.SameAgents(other) && obj.SameTimes(other);
+           match = obj.SameAgents(other) & obj.SameTimes(other);
         end
         
     end

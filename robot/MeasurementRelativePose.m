@@ -93,8 +93,8 @@ classdef MeasurementRelativePose < Measurement
             tar_p = z.ToPose(mid_p);
             a = mid_p(3);
             R = [cos(a), -sin(a), 0;
-                 sin(a), cos(a), 0
-                 0,      0,      1];
+                sin(a), cos(a), 0
+                0,      0,      1];
             cov = obj.covariance + R*z.covariance*R';
             
             m = MeasurementRelativePose(obs_p, tar_p, zeros(3));
@@ -103,7 +103,78 @@ classdef MeasurementRelativePose < Measurement
             m.target_id = z.target_id;
             m.observer_time = obj.observer_time;
             m.target_time = z.target_time;
-             
+            
+        end
+        
+    end
+    
+    methods(Static)
+        
+        % Groups and averages measurements into a compact set of unique
+        % relations
+        function [m] = Compact(many)
+            
+            grouped = MeasurementRelativePose.Group(many);
+            m = cell(size(grouped));
+            for i = 1:numel(grouped)
+                m{i} = MeasurementRelativePose.Average(grouped{i});
+            end
+            
+        end
+        
+        % Averages multiple measurements of the same relation into a single
+        % equivalent measurement. Expects input in array form.
+        function [m] = Average(many)
+            
+            if any(~many(1).SameRelation(many))
+                error('Cannot compact measurements of different relations');
+            end
+            
+            % Can't compute weighted-sum of angles directly - Need to go to
+            % intermmediate overparameterized format. Here we use [cos;
+            % sin] unit vectors instead.
+            means = [many.double()];
+            angles = means(3,:);
+            overparam = [cos(angles); sin(angles)];
+            means(3:4,:) = overparam;
+            
+            weighted_mean = zeros(4,1);
+            sum_info = zeros(4);
+            for i = 1:numel(many)
+                % Expand covariance matrix by duplicating angle terms
+                cov = many(i).covariance;
+                cov(1:2,4) = cov(1:2,3);
+                cov(4,1:2) = cov(3,1:2);
+                cov(4,4) = cov(3,3);
+                info = inv(cov);
+                sum_info = sum_info + info;
+                weighted_mean = weighted_mean + cov\means(:,i);
+            end
+            mean = sum_info\weighted_mean;
+            cov = inv(sum_info);
+            m = many(1);
+            m.displacement = mean(1:2);
+            m.rotation = wrapToPi(atan2(mean(4), mean(3)));
+            m.covariance = cov(1:3,1:3);
+        end
+        
+        % Groups measurements into a cells of arrays for unique relations
+        function [grouped] = Group(many)
+            
+            unique = [];
+            grouped = {};
+            for i = 1:numel(many)
+                z = many(i);
+                match = z.SameRelation(unique);
+                if ~any(match)
+                   unique = [unique, z];
+                   grouped{end + 1} = z;
+                else
+                   grouped{match} = [grouped{match}, z]; 
+                end
+                
+            end
+            
         end
         
     end
