@@ -10,6 +10,8 @@ classdef Plotter2D < handle
         colors;         % Visualization colors
         name;           % Figure title
         
+        z_scale = 1; % Height scaling
+        
         % Parameters
         tick_length     = 0.04;
         tick_thickness  = 2;
@@ -90,7 +92,7 @@ classdef Plotter2D < handle
             % Plot orientation tick
             a = p(3);
             dx = s*obj.tick_length*cos(a);
-            dy = s*obj.tick_length*sin(a);
+            dy = s*obj.tick_length*sin(a);            
             obj.PlotLine([x, y, t], [x + dx, y + dy, t], ...
                 {'Color', c, 'LineWidth', obj.tick_thickness});
             
@@ -100,6 +102,7 @@ classdef Plotter2D < handle
             
             x = p(1);
             y = p(2);
+            t = obj.z_scale*t;
             text(x, y, t, l, 'FontSize', obj.text_size, ...
                 'FontWeight', 'bold', 'HorizontalAlignment', 'Center');
             
@@ -115,6 +118,7 @@ classdef Plotter2D < handle
         % Plots a covariance ellipse
         function PlotEllipse(obj, p, t, cov)
             
+            t = obj.z_scale*t;
             cov = cov(1:2,1:2);
             a = linspace(0, 2*pi, obj.ellipse_points);
             c = [cos(a); sin(a)];
@@ -134,6 +138,7 @@ classdef Plotter2D < handle
                 params = {};
             end
             
+            center(3) = center(3)*obj.z_scale;
             t = linspace(0, 2*pi, n+1);
             x = center(1) + r*cos(t);
             y = center(2) + r*sin(t);
@@ -150,7 +155,7 @@ classdef Plotter2D < handle
             
             x = [start(1), finish(1)];
             y = [start(2), finish(2)];
-            z = [start(3), finish(3)];
+            z = [start(3), finish(3)]*obj.z_scale;
             plot3(obj.axe, x, y, z, params{:});
             
         end

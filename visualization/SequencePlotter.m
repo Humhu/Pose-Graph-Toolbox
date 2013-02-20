@@ -4,7 +4,6 @@ classdef SequencePlotter < Plotter2D
     properties
         
         history;        % Data being shown
-        time_z_scale    = 1.0; % Conversion from time to z height
         tMap;           % Time to index mapping
         idMap;          % ID to index mapping
         
@@ -33,7 +32,9 @@ classdef SequencePlotter < Plotter2D
         
         function [] = PlotSequence(obj, seq)
             
-            T = numel(seq);
+            T = numel(seq);            
+            obj.history = [obj.history, seq];
+            [obj.idMap, obj.tMap] = obj.history.BuildMaps();
             for t = 1:T
                 obj.PlotState(seq(t));
             end
@@ -70,9 +71,7 @@ classdef SequencePlotter < Plotter2D
     methods(Access = protected)
         
         function [] = PlotState(obj, state)
-            
-            obj.history = [obj.history, state];
-            [obj.idMap, obj.tMap] = obj.history.BuildMaps();
+                        
             obj.PlotMeasurements(state);
             obj.PlotPoses(state);
             
@@ -133,8 +132,8 @@ classdef SequencePlotter < Plotter2D
             pEst = m.ToPose(p);
             
             thickness = obj.measurement_thickness;
-            to = m.observer_time*obj.time_z_scale;
-            tt = m.target_time*obj.time_z_scale;
+            to = m.observer_time;
+            tt = m.target_time;
             obj.PlotLine([p(1:2); to], [pEst(1:2); tt], ...
                 {'Color', color, 'LineWidth', thickness});
             

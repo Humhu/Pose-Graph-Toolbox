@@ -32,9 +32,9 @@ mm.output_wrapping = boolean([0,0,1]);
 rps = RelativePoseSensor();
 rps.maxRange = 0.3;
 rps.mean = [0;0;0];
-rps.covariance = [0.01^2,   0,      0;
-                0,        0.01^2, 0;
-                0,        0,      0.04^2];
+rps.covariance = (0.005^2)*[1,   0,  0;
+                           0,   1,  0;
+                           0,   0,  2];
 
 % Robots
 r0 = Robot();

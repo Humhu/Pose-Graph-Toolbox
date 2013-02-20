@@ -33,6 +33,7 @@ classdef Simulator2D < handle
             obj.world = World2D(world_size); % Initialize world
             obj.plotter = SequencePlotter(world_size); % Initialize visualization
             obj.plotter.Label('Truth');
+            obj.plotter.z_scale = 0.1;
             
             obj.history(100) = WorldState2D;
             obj.history_ind = 1;

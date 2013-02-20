@@ -29,7 +29,7 @@ classdef HierarchyPlotter < Plotter2D
         function PlotHierarchy(obj, robots, state)
             
             [obj.idMap, ~] = state.BuildMaps();
-            
+            obj.z_scale = 0.5;
             mdepth = 0;
             
             for i = 1:numel(robots)
@@ -64,6 +64,7 @@ classdef HierarchyPlotter < Plotter2D
         function PlotBeliefs(obj, root)
            
             r = root;
+            obj.z_scale = 0.1;
             while(~isempty(r))
                 curr = r(1);
                 r(1) = [];
@@ -83,17 +84,35 @@ classdef HierarchyPlotter < Plotter2D
         
         function PlotGraph(obj, sequence)
             
-            [~, tMap] = sequence.BuildMaps();
+            [idMap, tMap] = sequence.BuildMaps();
+                     
             for t = 1:numel(sequence)
+                
                 state = sequence(t);
                 true_t = tMap.Backward(t);
+                
+                % Plot robot positions
                 for i = 1:state.GetDimension()
                     p = state.poses(:,i);
                     id = state.ids(i);
                     %c = obj.colors(idMap.Forward(id),:); % FIX!!
                     c = obj.colors(id + 1, :);
                     obj.PlotRobot(p, true_t, c, 1.0);
+                    obj.PlotLabel(p, true_t, num2str(id));
                 end
+                
+                % Plot measurements
+                for i = 1:numel(state.measurements)
+                   m = state.measurements{i};
+                   obs_t = tMap.Forward(m.observer_time);
+                   obs_id = idMap.Forward(m.observer_id);                   
+                   
+                   obs_p = sequence(obs_t).poses(:,obs_id);
+                   tar_p = m.ToPose(obs_p);                   
+                   obj.PlotLine([obs_p(1:2); m.observer_time], ...
+                       [tar_p(1:2); m.target_time], {'-r'});
+                end
+                
             end
             
         end

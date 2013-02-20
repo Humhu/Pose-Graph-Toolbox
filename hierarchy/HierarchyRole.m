@@ -250,6 +250,51 @@ classdef HierarchyRole < handle
             
         end
         
+        % Translates extra-team measurements and replaces old odometry
+        % constraints with new ones when received. Returns intra-team
+        % measurements and largest time value seen.
+        function [measurements, latest_t] = ProcessMeasurements(obj, measurements)                        
+            
+            % Translate and transmit extra-team measurements
+            team_ids = obj.GetTeam();
+            remove = false(numel(measurements), 1);                        
+            for i = 1:numel(measurements)
+                z = measurements{i};
+                if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
+                    obj.TranslateMeasurement(z); % Sends it to a better place
+                    remove(i) = 1;
+                end
+            end
+            measurements(remove) = [];
+            
+            % Determine new times
+            latest_t = -Inf;
+            for i = 1:numel(measurements)
+                z = measurements{i};
+                latest_t = max([z.target_time, z.observer_time, latest_t]);
+            end
+            
+            % Replace old odometry constraints with new ones
+            remove = false(numel(measurements), 1);
+            [~, tMap] = obj.local_beliefs.BuildMaps();
+            for i = 1:numel(measurements)
+                z = measurements{i};                
+                if z.observer_time == z.target_time
+                    continue;                    
+                end
+                remove(i) = 1;
+                obs_t = tMap.Forward(z.observer_time);
+                old_zs = obj.local_beliefs(obs_t).measurements;
+                for j = 1:numel(old_zs);
+                   zo = old_zs{j};
+                   if z.SameRelation(zo)
+                      obj.local_beliefs(obs_t).measurements{j} = z;
+                      break; % Should only be one corresponding
+                   end
+                end
+            end
+        end
+        
         % Input measurements into this agent for processing, whether from a
         % robot or follower agent
         function PushMeasurements(obj, measurements)
@@ -268,26 +313,8 @@ classdef HierarchyRole < handle
                 return
             end
             
-            measurements = obj.rx_buffer.PopAll();
-                        
-            % Transmit all non-local measurements            
-            team_ids = obj.GetTeam();
-            remove = false(numel(measurements), 1);                        
-            for i = 1:numel(measurements)
-                z = measurements{i};
-                if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)                    
-                    obj.TranslateMeasurement(z); % Sends it to a better place                    
-                    remove(i) = 1;                    
-                end
-            end
-            measurements(remove) = [];
-            
-            % Determine new times
-            latest_t = -Inf;
-            for i = 1:numel(measurements)
-                z = measurements{i};
-                latest_t = max([z.target_time, z.observer_time, latest_t]);
-            end
+            measurements = obj.rx_buffer.PopAll();                                    
+            [measurements, latest_t] = obj.ProcessMeasurements(measurements);                       
             
             % Add new time slice to belief sequence if needed
             obj.ExtendGraph(latest_t);            
@@ -309,29 +336,30 @@ classdef HierarchyRole < handle
             
             % Inform leader of new local movement
             start_t = obj.local_beliefs(1).time;
+            end_t = obj.local_beliefs(end).time;
             if ~isempty(obj.leader)
-                if obj.time == obj.last_sent + obj.leader.time_scale
-                    op_z = obj.ExtractLocalRelation(obj.ownerID, start_t, ...
-                        obj.ownerID, obj.time);
-                    meas = {op_z};
-                    obj.leader.PushMeasurements(meas);
+                sub_times = start_t:obj.leader.time_scale:end_t;
+                meas = cell(numel(sub_times) - 1, 1);
+                for i = 1:numel(sub_times)-1                    
+                    op_z = obj.ExtractLocalRelation(obj.ownerID, sub_times(i), ...
+                        obj.ownerID, sub_times(i+1));
+                    meas{i} = op_z;                    
                 end
+                obj.leader.PushMeasurements(meas);                
             end
             
             % Communicate only at fixed intervals
-            if mod(obj.time, obj.time_scale) ~= 0
-                obj.time = obj.time + 1;
-                return
-            end
+%             if mod(obj.time, obj.time_scale) ~= 0
+%                 obj.time = obj.time + 1;
+%                 return
+%             end
             
             % Inform followers of latest local_beliefs
             if isempty(obj.followers)
                 obj.time = obj.time + 1;
                 return
             end
-            
-            
-            end_t = obj.local_beliefs(end).time;
+                        
             fprintf('Informing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
                 obj.level, obj.time)
             for i = 1:numel(obj.followers)

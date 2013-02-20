@@ -103,14 +103,14 @@ classdef Robot < handle
             currPose = state.poses(:,idMap.Forward(obj.ID));
             obj.beliefs = currPose; %TODO Placeholder for localization results
             
-            % Generate control outputs and apply motion
-            % TODO Have u generated in robot frame
-            u = obj.motionController.GenerateOutputs(obj.beliefs);
-            obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);
+            % Apply motion from last time and generate corresponding
+            % odometry measurement
+            % TODO Have u generated in robot frame            
+            u = obj.motionController.GenerateOutputs(obj.beliefs);            
+            obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);                                            
             
-            nextPose = currPose + obj.last_output;
-            nextPose(3) = wrapToPi(nextPose(3));
-            obj.last_output = u;
+            nextPose = currPose + u;
+            nextPose(3) = wrapToPi(nextPose(3));                
             
             % TODO generalize to sensor and move to module
             obj.odometry = MeasurementRelativePose(currPose, nextPose, zeros(3));

@@ -60,8 +60,8 @@ classdef WorldState2D
             
             rotated = obj;                        
             
-            R = [cos(theta), sin(theta);
-                -sin(theta), cos(theta)];
+            R = [cos(theta), -sin(theta);
+                sin(theta), cos(theta)];
             p = [rotated.poses];            
             p(1:2,:) = R*p(1:2,:);
             p(3,:) = bsxfun(@plus, p(3,:), theta);
