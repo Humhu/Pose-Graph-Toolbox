@@ -1,4 +1,4 @@
-% A hierarchical role object
+% HIERARCHYROLE - Reactive softare agent that manages a chained graph
 % Contains all information required to perform role's duties
 classdef HierarchyRole < handle
     
