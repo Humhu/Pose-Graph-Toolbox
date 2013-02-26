@@ -60,7 +60,7 @@ positions(3,:) = wrapToPi(positions(3,:));
 % Generate robots
 robots = InitRobots(r0, {positions});
 grouping = GenerateGrouping(d, b);
-time_scales = [9;3;1];
+time_scales = [3;1];
 AssignGrouping(robots, grouping, time_scales);
 
 % Add robots to simulator

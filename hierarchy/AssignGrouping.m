@@ -23,9 +23,8 @@ for k = 0:numel(grouping) - 1
             
             ind = group(j);
             
-            role = HierarchyRole(k);            
+            role = HierarchyRole(k, time_scales(k + 1), 1);            
             followers(j) = role;
-            role.time_scale = time_scales(k + 1);
             
             robot = robots(ind);
             robot.RegisterRole(role);
