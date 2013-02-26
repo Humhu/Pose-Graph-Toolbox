@@ -23,6 +23,12 @@ classdef BinBuffer < handle
             
         end
         
+        function [new] = Copy(obj)
+           
+            new = BinBuffer(size(obj.buff,1), size(obj.buff,2));
+            
+        end
+        
         function Push(obj, bin, item)
             
             item = FlattenCell(item);
