@@ -4,19 +4,18 @@ classdef HierarchyRole < handle
     
     properties
         
-        level;      % Rank of role (root level = 0)
         time;       % Internal time counter
         
         ownerID;    % ownerID of corresponding robot
         leader;     % Reference to leader HierarchyRole object
         followers;  % Array of follower HierarchyRole objects
-
+        
         estimates = MeasurementRelativePose();
         higher_beliefs; % MeasurementRelativePose array representing ancestor beliefs
         % Each Measurement at index i corresponds to the relative pose of
         % the ancestor at level (i + 1) wrt ancestor at level (i).
         
-        chained_graph;               
+        chained_graph;
         last_sent;
         
         tx_buffer;  % BinBuffer storing higher level measurements to send
@@ -28,7 +27,6 @@ classdef HierarchyRole < handle
         
         function [obj] = HierarchyRole(level, time_scale, time_overlap)
             
-            obj.level = level;           
             obj.chained_graph = ChainedGraph(level, time_scale, time_overlap);
             obj.higher_beliefs = MeasurementRelativePose.empty(1, 0);
             obj.tx_buffer = BinBuffer(1, 50);
@@ -55,8 +53,9 @@ classdef HierarchyRole < handle
         % Creates a deep copy of this HierarchyRole object
         function [new] = Copy(obj)
             
-            new = HierarchyRole(obj.level, obj.chained_graph.time_scale, ...
-                obj.chained_graph.time_overlap);            
+            new = HierarchyRole(obj.chained_graph.depth, ...
+                obj.chained_graph.time_scale, ...
+                obj.chained_graph.time_overlap);
             new.time = obj.time;
             new.ownerID = obj.ownerID;
             new.leader = obj.leader;
@@ -73,18 +72,11 @@ classdef HierarchyRole < handle
         % Return indices of team (self and followers)
         function [ids] = GetTeam(obj)
             
-            ids = obj.ownerID;
-            
-            if isempty(obj.followers)
-                return
-            end
-            
-            % Self ID is contained in followers.ownerID
-            ids = [obj.followers.ownerID];
+            ids = obj.chained_graph.robot_scope;
             
         end
         
-        % Get IDs of all ancestors FIX
+        % Get IDs of all ancestors FIX?
         function [ids] = GetDescendants(obj)
             
             ids = obj.GetTeam();
@@ -107,23 +99,20 @@ classdef HierarchyRole < handle
         
         % Queries position at time t relative to level k leader
         % k = 0 returns relative to root, k = -1 returns global estimate
-        function [rel] = QueryRelation(obj, k, t)                        
-                        
+        function [rel] = QueryRelation(obj, k, t)
+            
             if ~ismember(t, obj.chained_graph.time_scope)
                 error('Invalid relation query %d in scope %d', ...
                     t, obj.chained_graph.time_scope);
-            end                        
+            end
             
-            relation = MeasurementRelativePose();
-            relation.observer_id = obj.chained_graph.base_id;
-            relation.observer_time = obj.chained_graph.base_time;
-            relation.target_id = obj.chained_graph.base_id;
+            relation = obj.chained_graph.CreateRelation('base', 'base');
             relation.target_time = t;
             
             local_rel = obj.chained_graph.Extract(relation);
             
             if k < obj.level
-                k_rel = obj.estimates(k+2);            
+                k_rel = obj.estimates(k+2);
                 rel = k_rel.Compose(local_rel);
             else
                 rel = local_rel;
@@ -132,15 +121,15 @@ classdef HierarchyRole < handle
         end
         
         function [rel] = QueryDisplacement(obj, tstart, tend)
-           
+            
             if ~ismember(tstart, obj.chained_graph.time_scope)
                 error('Invalid displacement query start %d in scope %d', ...
                     tstart, obj.chained_graph.time_scope);
-            end  
+            end
             if ~ismember(tend, obj.chained_graph.time_scope)
                 error('Invalid displacement query end %d in scope %d', ...
                     tend, obj.chained_graph.time_scope);
-            end  
+            end
             
             relation = MeasurementRelativePose();
             relation.observer_id = obj.chained_graph.base_id;
@@ -154,17 +143,23 @@ classdef HierarchyRole < handle
         % Initialize agent's local_beliefs
         function Initialize(obj, state)
             
-            ids = obj.GetTeam();
-            
+            % Doesn't work until graph initialized... fix?
+            %ids = obj.GetTeam();
+            if isempty(obj.followers)
+                ids = obj.ownerID;
+            else
+                ids = [obj.followers.ownerID];
+            end
+                
             substate = state;
             substate.poses = substate.poses(:,ismember(substate.ids, ids));
             substate.ids = ids;
             substate = substate.Zero(); % Leader is at origin
-            substate.measurements = {}; % Do we want this?                        
+            substate.measurements = {}; % Do we want this?
             
             obj.chained_graph.Initialize(substate);
             obj.chained_graph.SetBase(substate.time, substate.ids(1));
-                                    
+            
             obj.time = 0;
             
             for i = 1:numel(obj.followers)
@@ -172,7 +167,7 @@ classdef HierarchyRole < handle
                 f.Initialize(state);
             end
             
-            if obj.level ~= 0
+            if obj.chained_graph.depth ~= 0
                 return
             end
             
@@ -188,23 +183,8 @@ classdef HierarchyRole < handle
             
         end
         
-        function TransmitChains(obj)
-            
-            relation = MeasurementRelativePose();
-            relation.observer_id = obj.chained_graph.base_id;
-            relation.observer_time = obj.chained_graph.base_time;
-            relation.target_time = obj.chained_graph.time_scope(end);            
-            
-            for i = 1:numel(obj.followers)
-                f = obj.followers(i);
-                relation.target_id = f.ownerID;
-                z = obj.chained_graph.Extract(relation);
-                f.ChainUpdate([obj.chained_graph.chain, z]);
-            end
-            
-        end
-        
-        % Update the subgraph chain
+        % Update the subgraph chain in response to receiving new links
+        % TODO: Switch to use TX buffer instead of direct function call
         function ChainUpdate(obj, beliefs)
             
             obj.chained_graph.chain = beliefs;
@@ -212,13 +192,18 @@ classdef HierarchyRole < handle
             % Update local position estimates
             obj.BuildEstimates(obj.chained_graph.chain);
             
-            %Update local graph times            
+            % Update local graph times
             base_time = beliefs(end).target_time;
-            obj.chained_graph.SetBase(base_time, obj.chained_graph.base_id);                
-            end_time = base_time ...
-                - obj.chained_graph.time_overlap*obj.chained_graph.time_scale;
-            obj.chained_graph.Contract(end_time);
+            obj.chained_graph.SetBase(base_time, obj.chained_graph.base_id);
             
+            % We leave some overlap when contracting
+            if ~isempty(obj.chained_graph.parent)
+                parent_scale = obj.chained_graph.parent.time_scale;
+                alpha = obj.chained_graph.time_overlap;
+                start_time = base_time - alpha*parent_scale;
+                obj.chained_graph.Contract(start_time);
+            end
+                
             obj.TransmitChains();
             
         end
@@ -228,7 +213,7 @@ classdef HierarchyRole < handle
         % Currently we assume that only the target ID can be extra-group
         function TranslateMeasurement(obj, m)
             
-            % Check target                                  
+            % Check target
             if ~ismember(m.target_id, obj.GetTeam())
                 % Find target's corresponding role agent and LCA
                 other = FindLMR(obj, m.target_id);
@@ -244,7 +229,7 @@ classdef HierarchyRole < handle
                 %common_obs_time = m.observer_time - mod(m.observer_time, common.time_scale);
                 %common_tar_time = m.target_time - mod(m.target_time, common.time_scale);
                 
-                local_to_proxy = obj.QueryRelation(local_proxy.level, m.observer_time);                
+                local_to_proxy = obj.QueryRelation(local_proxy.level, m.observer_time);
                 other_to_proxy = other.QueryRelation(other_proxy.level, m.target_time);
                 
                 m = local_to_proxy.Compose(m);
@@ -274,11 +259,11 @@ classdef HierarchyRole < handle
                 return
             end
             
-            measurements = obj.rx_buffer.PopAll();      
+            measurements = obj.rx_buffer.PopAll();
             
             % Translate and transmit extra-team measurements
             team_ids = obj.GetTeam();
-            remove = false(numel(measurements), 1);                        
+            remove = false(numel(measurements), 1);
             for i = 1:numel(measurements)
                 z = measurements{i};
                 if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
@@ -289,21 +274,26 @@ classdef HierarchyRole < handle
             measurements(remove) = [];
             
             % Determine new times
-            latest_t = -Inf;
+            times = zeros(1,2*numel(measurements));
             for i = 1:numel(measurements)
                 z = measurements{i};
-                latest_t = max([z.target_time, z.observer_time, latest_t]);
+                times(2*i-1:2*i) = [z.observer_time, z.target_time];
             end
+            latest_t = max(times);
             
             % Extend to cover new times, then incorporate and optimize
-            obj.chained_graph.Extend(latest_t);            
+            obj.chained_graph.Extend(latest_t);
             obj.chained_graph.Incorporate(measurements);
             
             fprintf('Optimizing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
-                obj.level, obj.time)
-            obj.chained_graph.Optimize();                                                                                 
+                obj.chained_graph.depth, obj.time)
+            fprintf(['\t in robot scope: ', num2str(obj.chained_graph.robot_scope), ...
+                ' time scope: ', num2str(obj.chained_graph.time_scope), '\n']);
+            obj.chained_graph.Optimize();
             
             % Inform leader here
+            obj.TransmitRepresentatives();
+            
             % Chain update here
             obj.TransmitChains();
             
@@ -319,23 +309,61 @@ classdef HierarchyRole < handle
         % measurements(end) corresponding to fn->obj
         function BuildEstimates(obj, measurements)
             
-            if numel(measurements) ~= obj.level + 1
+            if numel(measurements) ~= obj.chained_graph.depth + 1
                 error(['Wrong number of measurements given to BuildEstimates: ', ...
-                    'level: %d, #meas: %d'], obj.level, numel(measurements));
+                    'level: %d, #meas: %d'], obj.chained_graph.depth, ...
+                    numel(measurements));
             end
             
             % Initialize all as last link
-            for i = 1:obj.level+1
+            for i = 1:obj.chained_graph.depth + 1
                 obj.estimates(i) = measurements(end);
             end
             
             % Build chain by composing measurements in reverse-order
-            for i = obj.level:-1:1
+            for i = obj.chained_graph.depth:-1:1
                 m = measurements(i);
                 for j = i:-1:1
                     obj.estimates(j) = m.Compose(obj.estimates(j));
                 end
             end
+            
+        end
+        
+        % Extract and send new links to followers
+        function TransmitChains(obj)
+            
+            relation = obj.chained_graph.CreateRelation('base', [0,0]);
+            relation.target_time = obj.chained_graph.time_scope(end);
+            
+            for i = 1:numel(obj.followers)
+                f = obj.followers(i);
+                relation.target_id = f.ownerID;
+                z = obj.chained_graph.Extract(relation);
+                f.ChainUpdate([obj.chained_graph.chain, z]);
+            end
+            
+        end
+        
+        function TransmitRepresentatives(obj)
+           
+            parent_scale = obj.chained_graph.parent.time_scale;
+            start_time = obj.chained_graph.subgraph(1).time;
+            end_time = obj.chained_graph.subgraph(end).time;                        
+            
+            representative_times = start_time:parent_scale:end_time;
+            representatives = cell(1, numel(representative_times - 1));
+            relation = obj.chained_graph.CreateRelation('base', 'base');
+            for i = 1:numel(representative_times) - 1
+               
+                relation.observer_time = representative_times(i);
+                relation.target_time = representative_times(i + 1);                
+                
+                representatives{i} = obj.chained_graph.Extract(relation);
+                
+            end
+            
+            obj.leader.PushMeasurements(representatives);
             
         end        
         

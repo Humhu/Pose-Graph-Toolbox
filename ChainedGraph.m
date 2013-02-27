@@ -71,13 +71,13 @@ classdef ChainedGraph < handle
         function SetBase(obj, base_time, base_id)
 
             if ~ismember(base_time, obj.time_scope)
-               error('Base time %d not in time scope %d.', base_time, obj.time_scope); 
+               error('Base time %d not in time scope %4d.', base_time, obj.time_scope); 
             end            
             obj.base_time = base_time;
             
             if ~any(obj.subgraph(1).ids == base_id)
                 error(['Cannot set base ID to outside of initialized scope. ', ...
-                    'base ID: %d, ID scope: %d'], base_id, state(1).ids);
+                    'base ID: %d, ID scope: %4d'], base_id, state(1).ids);
             end
             obj.base_id = base_id;
             
@@ -105,9 +105,9 @@ classdef ChainedGraph < handle
             
             t_last = obj.time_scope(end);
             t_new = t_last:obj.time_scale:t_end;
+            t_new(1) = [];
             
-            % Start from 2 so we don't include t_last
-            for i = 2:numel(t_new)
+            for i = 1:numel(t_new)
                new_state = obj.subgraph(end);
                new_state.measurements = {}; 
                % Add dummy measurements               
@@ -143,7 +143,7 @@ classdef ChainedGraph < handle
             cut_ind = tMap.Forward(t_start);
             
             if isempty(cut_ind)
-                error('Cut time %d not in scope $d', t_start, obj.time_scope);
+                error('Cut time %d not in scope $4d', t_start, obj.time_scope);
             end
             
             % Marginalize by optimizing info leaving scope
@@ -186,6 +186,12 @@ classdef ChainedGraph < handle
                 
                 z = measurements{i};
                 t_ind = tMap.Forward(z.observer_time);
+                
+                if isempty(t_ind)
+                    error(['Cannot incorporate out-of-scope measurement.', ...
+                        ', z_t: %d, scope: %4d'], z.observer_time, obj.time_scope);
+                end
+                    
                 % Append non-odometric, replace odometric
                 if z.observer_time == z.target_time
                     obj.subgraph(t_ind).measurements{end+1} = z;
@@ -210,10 +216,29 @@ classdef ChainedGraph < handle
             
         end
         
+        % Convenience function for creating relations compactly
+        % obs is of form [obs_id, obs_time], same for tar        
+        function [r] = CreateRelation(obj, obs, tar) 
+        
+            if strcmp(obs, 'base')
+                obs = [obj.base_id, obj.base_time];
+            end
+            if strcmp(tar, 'base')
+                tar = [obj.base_id, obj.base_time];
+            end
+            
+            r = MeasurementRelativePose();
+            r.observer_id = obs(1);
+            r.observer_time = obs(2);
+            r.target_id = tar(1);
+            r.target_time = tar(2);
+            
+        end
+        
     end
     
-    methods(Static, Access=private)
-    
+    methods(Static)
+            
         % Measures a relation from an optimized graph with estimation
         % covariance
         function [z] = ReadRelation(graph, relation, covariance)
@@ -221,7 +246,7 @@ classdef ChainedGraph < handle
             N = graph.GetDimension();
             T = numel(graph);
             if 3*N*T ~= size(covariance,1)
-               error('Graph scope %d does not match covariance size %d.', ...
+               error('Graph scope %4d does not match covariance size %d.', ...
                     3*N*T, size(covariance,1));
             end
             

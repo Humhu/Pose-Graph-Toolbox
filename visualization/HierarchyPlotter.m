@@ -68,7 +68,7 @@ classdef HierarchyPlotter < Plotter2D
             while(~isempty(r))
                 curr = r(1);
                 r(1) = [];
-                graph = curr.local_beliefs;
+                graph = curr.chained_graph.subgraph;
                 graph_root_pos = curr.estimates(1);                
                 graph = graph.Rotate(graph_root_pos.rotation);
                 graph = graph.Shift(graph_root_pos.displacement);
