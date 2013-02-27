@@ -60,11 +60,13 @@ classdef ChainedGraph < handle
         % base time automatically 
         function Initialize(obj, state)
             
-           obj.subgraph = state;
+           obj.subgraph = state;                                 
            obj.robot_scope = state(1).ids;
            obj.time_scope = [state.time];
            N = 3*numel(obj.robot_scope)*numel(obj.time_scope);
            obj.estimate_covariance = 1E-6*eye(N); % Hard coded initialization uncertainty
+           
+           obj.Contract(obj.subgraph(end).time);
            
         end
         
