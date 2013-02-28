@@ -347,6 +347,10 @@ classdef HierarchyRole < handle
         
         function TransmitRepresentatives(obj)
            
+            if isempty(obj.chained_graph.parent)
+                return
+            end
+            
             parent_scale = obj.chained_graph.parent.time_scale;
             start_time = obj.chained_graph.subgraph(1).time;
             end_time = obj.chained_graph.subgraph(end).time;                        

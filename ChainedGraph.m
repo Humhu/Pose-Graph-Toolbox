@@ -57,17 +57,34 @@ classdef ChainedGraph < handle
         end
         
         % Initialize the subgraph and set the base parameters
-        % base time automatically 
+        % base time automatically
         function Initialize(obj, state)
             
-           obj.subgraph = state;                                 
-           obj.robot_scope = state(1).ids;
-           obj.time_scope = [state.time];
-           N = 3*numel(obj.robot_scope)*numel(obj.time_scope);
-           obj.estimate_covariance = 1E-6*eye(N); % Hard coded initialization uncertainty
-           
-           obj.Contract(obj.subgraph(end).time);
-           
+            if numel(state) > 1
+                error('ChainedGraph does not yet support initializing from multiple states.');
+            end
+            
+            obj.subgraph = state;
+            obj.robot_scope = state.ids;
+            obj.time_scope = state.time;            
+            % Hard coded initialization uncertainty
+            obj.estimate_covariance = 1E-6*eye(3*numel(obj.robot_scope));                         
+                        
+            template_relation = MeasurementRelativePose();
+            template_relation.observer_id = obj.subgraph.ids(1);
+            template_relation.observer_time = obj.subgraph.time;
+            template_relation.target_time = obj.subgraph.time;
+            
+            init_relations = cell(1, numel(obj.subgraph.ids) - 1);
+            
+            for i = 2:numel(obj.subgraph.ids);                
+                template_relation.target_id = obj.subgraph.ids(i);
+                init_relations{i-1} = ChainedGraph.ReadRelation(obj.subgraph, ...
+                    template_relation, obj.estimate_covariance);                
+            end
+            
+            obj.Incorporate(init_relations);
+            
         end
         
         function SetBase(obj, base_time, base_id)
