@@ -2,7 +2,7 @@
 % TODO: Make more efficient
 function [match] = FindLMR(start, ID)
 
-level = start.level;
+level = start.chained_graph.depth;
 prev = start;
 
 % Search by going up the tree and checking descendants
@@ -20,7 +20,7 @@ end
 
 % Once a common ancestor is found, go down the tree 
 prev = up;
-for i = 1:start.level - level - 1
+for i = 1:start.chained_graph.depth - level - 1
    
     downs = prev.followers();
     for j = 1:numel(downs)        

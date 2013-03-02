@@ -5,11 +5,17 @@ classdef GNSolver < handle
     properties
         
         tolerance;
-        max_iterations;
+        max_iterations;               
+        
+    end
+    
+    properties(Access = private)
+       
+        idMap;
+        tMap;
         
         iterations;
         residual;
-        covariance;
         
     end
     
@@ -34,15 +40,20 @@ classdef GNSolver < handle
             
         end        
         
-        function [solution, cov] = Solve(obj, sequence)
+        % Anchor is [anchor_id, anchor_time]
+        function [solution, cov] = Solve(obj, sequence, anchor)
             
             % Need maps for IDs and time to indices
-            [idMap, tMap] = sequence.BuildMaps();
+            [obj.idMap, obj.tMap] = sequence.BuildMaps();
+            
+            if nargin == 2
+               anchor = [sequence(1).ids(1), sequence(1).time]; 
+            end
             
             rem = Inf;
             solution = sequence;
             while(norm(rem) > obj.tolerance)
-                [solution, rem, cov] = obj.Iterate(solution, idMap, tMap);
+                [solution, rem, cov] = obj.Iterate(solution, anchor);
                 obj.iterations = obj.iterations + 1;
                 %fprintf(['Iteration: ', num2str(obj.iterations), ...
                 %    '\tDelta max: ', num2str(norm(rem)), '\n']);
@@ -54,7 +65,7 @@ classdef GNSolver < handle
     
     methods(Access = private)        
         
-        function [solution, delta, covs] = Iterate(obj, sequence, idMap, tMap)
+        function [solution, delta, covs] = Iterate(obj, sequence, anchor)
             
             T = numel(sequence);
             N = sequence.GetDimension();
@@ -65,20 +76,20 @@ classdef GNSolver < handle
             
             % Build matrices using measurements
             measurements = FlattenCell({sequence.measurements});
-            used = {};
+            %used = {};
             for i = 1:numel(measurements)
                 
                 m = measurements{i};
                 
                 % Map into sequence indices
-                obs_t = tMap.Forward(m.observer_time);
-                tar_t = tMap.Forward(m.target_time);
-                obs_id = idMap.Forward(m.observer_id);
-                tar_id = idMap.Forward(m.target_id);
+                obs_t = obj.tMap.Forward(m.observer_time);
+                tar_t = obj.tMap.Forward(m.target_time);
+                obs_id = obj.idMap.Forward(m.observer_id);
+                tar_id = obj.idMap.Forward(m.target_id);
                 if isempty(obs_t) || isempty(tar_t)
                     continue;
                 end
-                used = [used, {m}];
+                %used = [used, {m}];
                 
                 % Retrieve relevant poses
                 obs_p = sequence(obs_t).poses(:, obs_id);
@@ -122,9 +133,10 @@ classdef GNSolver < handle
             % TODO: Better way of doing this?
             J0 = eye(3);
             info = 1E6*eye(3);
-            e0 = zeros(3,1);
-            H(1:3,1:3) = H(1:3,1:3) + J0'*info*J0;
-            b(1:3) = b(1:3) + e0;
+            ai_ind = obj.idMap.Forward(anchor(1));
+            at_ind = obj.tMap.Forward(anchor(2));
+            i = 3*N*(at_ind - 1) + 3*(ai_ind - 1) + 1;
+            H(i:i+2,i:i+2) = H(i:i+2,i:i+2) + J0'*info*J0;
             
             % Clean up states with no information and solve for increment
             for i = 1:size(H,1)

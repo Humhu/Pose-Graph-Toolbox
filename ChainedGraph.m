@@ -105,9 +105,11 @@ classdef ChainedGraph < handle
         % Optimize the subgraph
         function Optimize(obj)
             
+            anchor = [obj.base_id, obj.base_time];
             [obj.subgraph, obj.estimate_covariance] = ...
-                                    obj.solver.Solve(obj.subgraph);
-            
+                                    obj.solver.Solve(obj.subgraph, anchor);
+            obj.Zero(); % Make sure base node is at origin
+                                
         end
         
         % Extend the subgraph
@@ -180,9 +182,9 @@ classdef ChainedGraph < handle
             template_relation.observer_time = t_start;
             template_relation.target_time = t_start;
             
-            margin_relations = cell(1, numel(nonroot_ids));
+            margin_relations = cell(1, numel(nonbase_ids));
             
-            for i = 1:numel(nonroot_ids)
+            for i = 1:numel(nonbase_ids)
                                 
                 template_relation.target_id = nonbase_ids(i);
                 margin_relations{i} = ChainedGraph.ReadRelation(margin_graph, ...
@@ -192,8 +194,13 @@ classdef ChainedGraph < handle
             
             % Cut subgraph and incorporate relations generated from
             % marginalizing cut information
+            obj.time_scope = obj.time_scope(cut_ind:end);
             obj.subgraph = obj.subgraph(cut_ind:end);            
             obj.Incorporate(margin_relations);
+            
+            % Optimize and zero
+            obj.Zero();
+            obj.Optimize();
             
         end
         
@@ -270,7 +277,7 @@ classdef ChainedGraph < handle
                    'Local ID: ', num2str(obj.subgraph(1).ids), '\n', ...
                    'Local t: ', num2str([obj.subgraph.time]), '\n', ...
                    'Other ID: ', num2str(other(1).ids), '\n', ...
-                   'Other t: ', num2str([other.subgraph.time])]);                    
+                   'Other t: ', num2str([other.time])]);                    
             end
             other = other(t_matches);                      
             
@@ -290,6 +297,21 @@ classdef ChainedGraph < handle
             our_poses = [our.poses];
             diff = other_poses - our_poses;
             diff(3,:) = wrapToPi(diff(3,:));
+            
+        end
+        
+    end
+    
+    methods(Access = private)
+       
+        function Zero(obj)
+           
+            [idMap, tMap] = obj.subgraph.BuildMaps();
+            id_ind = idMap.Forward(obj.base_id);
+            t_ind = tMap.Forward(obj.base_time);
+            base_pose = obj.subgraph(t_ind).poses(:,id_ind);
+            obj.subgraph = obj.subgraph.Shift(-base_pose(1:2));
+            obj.subgraph = obj.subgraph.Rotate(-base_pose(3));
             
         end
         

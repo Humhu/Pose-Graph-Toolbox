@@ -11,8 +11,8 @@
 %   
 function [ancestor, k] = FindLCA(r1, r2)
 
-k1 = r1.level + 1;
-k2 = r2.level + 1;
+k1 = r1.chained_graph.depth + 1;
+k2 = r2.chained_graph.depth + 1;
 
 pred1 = cell(k1, 1);
 pred2 = cell(k2, 1);

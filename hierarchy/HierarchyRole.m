@@ -111,7 +111,7 @@ classdef HierarchyRole < handle
             
             local_rel = obj.chained_graph.Extract(relation);
             
-            if k < obj.level
+            if k < obj.chained_graph.depth
                 k_rel = obj.estimates(k+2);
                 rel = k_rel.Compose(local_rel);
             else
@@ -220,8 +220,8 @@ classdef HierarchyRole < handle
                 common = FindLCA(obj, other);
                 
                 % Determine proxies to translate to
-                local_proxy = obj.GetAncestor(obj.level - common.level - 1);
-                other_proxy = other.GetAncestor(other.level - common.level - 1);
+                local_proxy = obj.GetAncestor(obj.chained_graph.depth - common.chained_graph.depth - 1);
+                other_proxy = other.GetAncestor(other.chained_graph.depth - common.chained_graph.depth - 1);
                 
                 % Need to translate to nearest valid common time step
                 % TODO: How to consolidate?
@@ -229,8 +229,8 @@ classdef HierarchyRole < handle
                 %common_obs_time = m.observer_time - mod(m.observer_time, common.time_scale);
                 %common_tar_time = m.target_time - mod(m.target_time, common.time_scale);
                 
-                local_to_proxy = obj.QueryRelation(local_proxy.level, m.observer_time);
-                other_to_proxy = other.QueryRelation(other_proxy.level, m.target_time);
+                local_to_proxy = obj.QueryRelation(local_proxy.chained_graph.depth, m.observer_time);
+                other_to_proxy = other.QueryRelation(other_proxy.chained_graph.depth, m.target_time);
                 
                 m = local_to_proxy.Compose(m);
                 m = m.Compose(other_to_proxy.ToInverse());
@@ -296,6 +296,7 @@ classdef HierarchyRole < handle
             
             % Chain update here
             obj.TransmitChains();
+            obj.time = obj.time + 1;
             
         end
         
