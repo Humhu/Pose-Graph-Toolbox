@@ -254,6 +254,45 @@ classdef ChainedGraph < handle
             
         end
         
+        % Returns the difference between the overlapping poses with another
+        % graph. We assume the IDs and times are sorted in ascending order.
+        function [diff] = CompareGraphs(obj, other)
+            
+            if isa(other, 'ChainedGraph')
+                other = other.subgraph;
+            end            
+            our = obj.subgraph;
+            
+            % Get subset of other graph corresponding to local times
+            t_matches = ismember([other.time], [our.time]);
+            if sum(t_matches) ~= numel(obj.subgraph)
+               error(['Comparison graph does not contain local subgraph.\n', ...
+                   'Local ID: ', num2str(obj.subgraph(1).ids), '\n', ...
+                   'Local t: ', num2str([obj.subgraph.time]), '\n', ...
+                   'Other ID: ', num2str(other(1).ids), '\n', ...
+                   'Other t: ', num2str([other.subgraph.time])]);                    
+            end
+            other = other(t_matches);                      
+            
+            % Get subset of other graph that matches local
+            id_matches = ismember(other(1).ids, our(1).ids);            
+            T = numel(our);            
+            
+            [idMap, tMap] = other.BuildMaps();
+            id_ind = idMap.Forward(obj.base_id);
+            t_ind = tMap.Forward(obj.base_time);
+            b_pose = other(t_ind).poses(:,id_ind);
+            other = other.Shift(-b_pose(1:2));
+            other = other.Rotate(-b_pose(3));
+            
+            other_poses = [other.poses];
+            other_poses = other_poses(:, repmat(id_matches, 1, T));
+            our_poses = [our.poses];
+            diff = other_poses - our_poses;
+            diff(3,:) = wrapToPi(diff(3,:));
+            
+        end
+        
     end
     
     methods(Static)
@@ -275,6 +314,10 @@ classdef ChainedGraph < handle
             s_time = tMap.Forward(relation.observer_time);
             e_id = idMap.Forward(relation.target_id);
             e_time = tMap.Forward(relation.target_time);
+            if isempty(s_id) || isempty(s_time) || isempty(e_id) || isempty(e_time)
+                z = MeasurementRelativePose.empty(1,0);
+                return
+            end
             
             start_pose = graph(s_time).poses(:,s_id);
             end_pose = graph(e_time).poses(:,e_id);
