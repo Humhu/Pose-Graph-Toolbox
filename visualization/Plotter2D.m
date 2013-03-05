@@ -12,6 +12,8 @@ classdef Plotter2D < handle
         
         z_scale = 1; % Height scaling
         
+        line_handles;
+        
         % Parameters
         tick_length     = 0.04;
         tick_thickness  = 2;
@@ -70,6 +72,23 @@ classdef Plotter2D < handle
             
         end
         
+        % Have this plotter use another plotter's figure/axes
+        function Link(obj, other)
+           
+            close(obj.fig);
+            obj.fig = other.fig;
+            obj.axe = other.axe;
+            
+        end
+        
+        function SetLines(obj, args)
+           
+            for i = 1:numel(obj.line_handles)
+               set(obj.line_handles(i), args{:}); 
+            end
+            
+        end
+        
     end
     
     methods(Access = protected)
@@ -80,43 +99,44 @@ classdef Plotter2D < handle
         %   t - Time
         %   c - Color
         %   s - Size
-        function PlotRobot(obj, p, t, c, s)
+        function [h] = PlotRobot(obj, p, t, c, s)
             
             x = p(1);
             y = p(2);
             
             % Plot circle
-            obj.PlotPolygon([x,y,t], s*obj.robot_size, obj.circle_points, ...
+            h = [];
+            h(1) = obj.PlotPolygon([x,y,t], s*obj.robot_size, obj.circle_points, ...
                 {'Color', c, 'LineWidth', obj.robot_thickness});
             
             % Plot orientation tick
             a = p(3);
             dx = s*obj.tick_length*cos(a);
             dy = s*obj.tick_length*sin(a);            
-            obj.PlotLine([x, y, t], [x + dx, y + dy, t], ...
+            h(2) = obj.PlotLine([x, y, t], [x + dx, y + dy, t], ...
                 {'Color', c, 'LineWidth', obj.tick_thickness});
             
         end
         
-        function PlotLabel(obj, p, t, l)
+        function [h] = PlotLabel(obj, p, t, l)
             
             x = p(1);
             y = p(2);
             t = obj.z_scale*t;
-            text(x, y, t, l, 'FontSize', obj.text_size, ...
+            h = text(x, y, t, l, 'FontSize', obj.text_size, ...
                 'FontWeight', 'bold', 'HorizontalAlignment', 'Center');
             
         end
         
-        function PlotLegend(obj)
+        function [h] = PlotLegend(obj)
             
             n = size(obj.colors, 1);
-            legend(cellstr(num2str((1:n)')), 'location', 'eastoutside');
+            h = legend(cellstr(num2str((1:n)')), 'location', 'eastoutside');
             
         end
         
         % Plots a covariance ellipse
-        function PlotEllipse(obj, p, t, cov)
+        function [h] = PlotEllipse(obj, p, t, cov)
             
             t = obj.z_scale*t;
             cov = cov(1:2,1:2);
@@ -127,12 +147,12 @@ classdef Plotter2D < handle
             c = V*D*c;
             c = bsxfun(@plus, c, p(1:2));
             c = [c; t*ones(1, obj.ellipse_points)];
-            plot3(c(1,:), c(2,:), c(3,:), '-b', 'LineWidth', obj.ellipse_thickness);
+            h = plot3(c(1,:), c(2,:), c(3,:), '-b', 'LineWidth', obj.ellipse_thickness);
             
         end
         
         % Plots a n-vertex regular polygon
-        function PlotPolygon(obj, center, r, n, params)
+        function [h] = PlotPolygon(obj, center, r, n, params)
             
             if nargin == 4
                 params = {};
@@ -143,11 +163,11 @@ classdef Plotter2D < handle
             x = center(1) + r*cos(t);
             y = center(2) + r*sin(t);
             z = center(3)*ones(length(t),1);
-            plot3(obj.axe, x, y, z, params{:});
+            h = plot3(obj.axe, x, y, z, params{:});
             
         end
         
-        function PlotLine(obj, start, finish, params)
+        function [h] = PlotLine(obj, start, finish, params)
             
             if nargin == 3
                 params = {};
@@ -156,7 +176,8 @@ classdef Plotter2D < handle
             x = [start(1), finish(1)];
             y = [start(2), finish(2)];
             z = [start(3), finish(3)]*obj.z_scale;
-            plot3(obj.axe, x, y, z, params{:});
+            [h] = plot3(obj.axe, x, y, z, params{:});
+            obj.line_handles(end+1) = h;
             
         end
         

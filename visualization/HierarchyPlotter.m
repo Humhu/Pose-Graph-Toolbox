@@ -2,9 +2,7 @@
 
 classdef HierarchyPlotter < Plotter2D
     
-    properties
-        
-        idMap;
+    properties        
         
     end
     
@@ -64,7 +62,7 @@ classdef HierarchyPlotter < Plotter2D
         function PlotBeliefs(obj, root)
            
             r = root;
-            obj.z_scale = 0.1;
+            hold(obj.axe, 'on');
             while(~isempty(r))
                 curr = r(1);
                 r(1) = [];
@@ -108,9 +106,10 @@ classdef HierarchyPlotter < Plotter2D
                    obs_id = idMap.Forward(m.observer_id);                   
                    
                    obs_p = sequence(obs_t).poses(:,obs_id);
-                   tar_p = m.ToPose(obs_p);                   
+                   tar_p = m.ToPose(obs_p);
+                   color = obj.colors(obs_id,:);
                    obj.PlotLine([obs_p(1:2); m.observer_time], ...
-                       [tar_p(1:2); m.target_time], {'-r'});
+                       [tar_p(1:2); m.target_time], {'Color', color});
                 end
                 
             end
