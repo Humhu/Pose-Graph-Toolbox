@@ -12,7 +12,10 @@ classdef Plotter2D < handle
         
         z_scale = 1; % Height scaling
         
+        % Graphics handles
         line_handles;
+        label_handles;
+        robot_handles;
         
         % Parameters
         tick_length     = 0.04;
@@ -42,7 +45,12 @@ classdef Plotter2D < handle
                 -obj.dims(2)/2, obj.dims(2)/2]);
             grid off;
             axis vis3d;                        
-            hold(obj.axe, 'on');           
+            hold(obj.axe, 'on');          
+            
+            % Assign graphics groups
+            obj.line_handles = hggroup('parent', obj.axe);
+            obj.label_handles = hggroup('parent', obj.axe);
+            obj.robot_handles = hggroup('parent', obj.axe);
             
         end
         
@@ -69,6 +77,9 @@ classdef Plotter2D < handle
         function [] = Clear(obj)
             
             cla(obj.axe);
+            obj.line_handles = hggroup('parent', obj.axe);
+            obj.label_handles = hggroup('parent', obj.axe);
+            obj.robot_handles = hggroup('parent', obj.axe);
             
         end
         
@@ -78,15 +89,34 @@ classdef Plotter2D < handle
             close(obj.fig);
             obj.fig = other.fig;
             obj.axe = other.axe;
+            obj.line_handles = hggroup('parent', obj.axe);
+            obj.label_handles = hggroup('parent', obj.axe);
+            obj.robot_handles = hggroup('parent', obj.axe);
             
         end
         
-        function SetLines(obj, args)
-           
-            for i = 1:numel(obj.line_handles)
-               set(obj.line_handles(i), args{:}); 
-            end
-            
+        function ShowLines(obj)           
+            set(obj.line_handles, 'visible', 'on');
+        end
+        
+        function HideLines(obj)
+            set(obj.line_handles, 'visible', 'off');
+        end
+        
+        function ShowLabels(obj)
+            set(obj.label_handles, 'visible', 'on');
+        end
+        
+        function HideLabels(obj)
+           set(obj.label_handles, 'visible', 'off'); 
+        end
+        
+        function ShowRobots(obj)
+           set(obj.robot_handles, 'visible', 'on');
+        end
+        
+        function HideRobots(obj)
+           set(obj.robot_handles, 'visible', 'off');
         end
         
     end
@@ -99,32 +129,34 @@ classdef Plotter2D < handle
         %   t - Time
         %   c - Color
         %   s - Size
-        function [h] = PlotRobot(obj, p, t, c, s)
+        function PlotRobot(obj, p, t, c, s)
             
             x = p(1);
             y = p(2);
             
             % Plot circle
-            h = [];
-            h(1) = obj.PlotPolygon([x,y,t], s*obj.robot_size, obj.circle_points, ...
-                {'Color', c, 'LineWidth', obj.robot_thickness});
+            h = hggroup;
+            obj.PlotPolygon([x,y,t], s*obj.robot_size, obj.circle_points, ...
+                {'Color', c, 'LineWidth', obj.robot_thickness, 'parent', h});
             
             % Plot orientation tick
             a = p(3);
             dx = s*obj.tick_length*cos(a);
             dy = s*obj.tick_length*sin(a);            
-            h(2) = obj.PlotLine([x, y, t], [x + dx, y + dy, t], ...
-                {'Color', c, 'LineWidth', obj.tick_thickness});
+            obj.PlotLine([x, y, t], [x + dx, y + dy, t], ...
+                {'Color', c, 'LineWidth', obj.tick_thickness, 'parent', h});
+            set(h, 'parent', obj.robot_handles);
             
         end
         
-        function [h] = PlotLabel(obj, p, t, l)
+        function PlotLabel(obj, p, t, l)
             
             x = p(1);
             y = p(2);
             t = obj.z_scale*t;
-            h = text(x, y, t, l, 'FontSize', obj.text_size, ...
-                'FontWeight', 'bold', 'HorizontalAlignment', 'Center');
+            text(x, y, t, l, 'FontSize', obj.text_size, ...
+                'FontWeight', 'bold', 'HorizontalAlignment', 'Center', ...
+                'parent', obj.label_handles);
             
         end
         
@@ -152,7 +184,7 @@ classdef Plotter2D < handle
         end
         
         % Plots a n-vertex regular polygon
-        function [h] = PlotPolygon(obj, center, r, n, params)
+        function PlotPolygon(obj, center, r, n, params)
             
             if nargin == 4
                 params = {};
@@ -163,11 +195,11 @@ classdef Plotter2D < handle
             x = center(1) + r*cos(t);
             y = center(2) + r*sin(t);
             z = center(3)*ones(length(t),1);
-            h = plot3(obj.axe, x, y, z, params{:});
+            plot3(obj.axe, x, y, z, params{:});
             
         end
         
-        function [h] = PlotLine(obj, start, finish, params)
+        function PlotLine(obj, start, finish, params)
             
             if nargin == 3
                 params = {};
@@ -176,8 +208,10 @@ classdef Plotter2D < handle
             x = [start(1), finish(1)];
             y = [start(2), finish(2)];
             z = [start(3), finish(3)]*obj.z_scale;
-            [h] = plot3(obj.axe, x, y, z, params{:});
-            obj.line_handles(end+1) = h;
+            if ~any(strcmp(params, 'parent'))
+               params = [params, 'parent', obj.line_handles];
+            end
+            plot3(obj.axe, x, y, z, params{:});            
             
         end
         
