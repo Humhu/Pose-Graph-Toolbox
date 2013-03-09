@@ -232,6 +232,8 @@ classdef ChainedGraph < handle
                 
             end
             
+            obj.Compress();
+            
         end
         
         % Measure relations in the subgraph
@@ -298,7 +300,7 @@ classdef ChainedGraph < handle
             diff = other_poses - our_poses;
             diff(3,:) = wrapToPi(diff(3,:));
             
-        end
+        end       
         
     end
     
@@ -314,6 +316,17 @@ classdef ChainedGraph < handle
             obj.subgraph = obj.subgraph.Rotate(-base_pose(3));
             
         end
+        
+        function Compress(obj)
+            
+            for i = 1:numel(obj.subgraph)
+                
+                z = [obj.subgraph(i).measurements{:}];                
+                obj.subgraph(i).measurements = MeasurementRelativePose.Compact(z);
+                
+            end
+            
+        end 
         
     end
     
