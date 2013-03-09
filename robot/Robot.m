@@ -137,11 +137,8 @@ classdef Robot < handle
             
             meas = obj.measurements;
             
-        end
-    end
+        end    
     
-    methods(Access = private)
-        
         function GenerateMeasurements(obj, state)
             
             meas = {};
@@ -156,6 +153,10 @@ classdef Robot < handle
             obj.measurements = meas;
             
         end
+
+    end
+
+    methods(Access = private)
         
         % TODO: Convert to sensor module
         %         function [measurements] = GetMeasurementsRangeBearing(obj, state)

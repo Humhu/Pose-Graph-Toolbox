@@ -161,13 +161,13 @@ classdef MeasurementRelativePose < Measurement
         % Groups measurements into a cells of arrays for unique relations
         function [grouped] = Group(many)
             
-            unique = [];
+            unq = [];
             grouped = {};
             for i = 1:numel(many)
                 z = many(i);
-                match = z.SameRelation(unique);
+                match = z.SameRelation(unq);
                 if ~any(match)
-                   unique = [unique, z];
+                   unq = [unq, z];
                    grouped{end + 1} = z;
                 else
                    grouped{match} = [grouped{match}, z]; 

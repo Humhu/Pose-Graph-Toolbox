@@ -113,11 +113,7 @@ classdef World2D < handle
             
             err = double([obj.robots.pose] - [w.robots.pose]);
         end
-        
-    end
-    
-    methods(Access = private)
-        
+
         function [] = GenerateMeasurements(obj)
            
             obj.state.measurements = {};                        
@@ -128,7 +124,13 @@ classdef World2D < handle
                 
             end
             
-        end
+        end        
+
+    end
+    
+    methods(Access = private)
+        
+
         
     end
     

@@ -40,7 +40,7 @@ classdef WorldState2D
             l = max(times) - min(times);
             
         end                
-        
+                     
         % Build ID and time to index SearchMap objects
         function [idMap, tMap] = BuildMaps(obj)
             
@@ -52,6 +52,27 @@ classdef WorldState2D
             times = [obj.time];
             tinds = 1:numel(times);
             tMap = SearchMap(times, tinds);
+            
+        end
+        
+        function [sub] = GetSubset(obj, ids, times)
+            
+            if isempty(times)
+                times = [obj.time];
+            end
+            if isempty(ids)
+                ids = obj(1).ids;
+            end
+            
+            [idMap, tMap] = obj.BuildMaps();
+            id_inds = idMap.Forward(ids);
+            t_inds = tMap.Forward(times);
+            
+            sub = obj(t_inds);
+            for i = 1:numel(sub)
+                sub(i).poses = sub(i).poses(:,id_inds);
+                sub(i).ids = ids;
+            end
             
         end
         
@@ -89,10 +110,15 @@ classdef WorldState2D
             end
         end
         
-        function [zeroed] = Zero(obj)
+        function [zeroed] = Zero(obj, t_ind, id_ind)
+            
+            if nargin == 1
+                t_ind = 1;
+                id_ind = 1;
+            end
             
             zeroed = obj;
-            zero_pose = obj(1).poses(:,1);
+            zero_pose = obj(t_ind).poses(:,id_ind);
             a = zero_pose(3);
             R = [cos(a), sin(a);
                 -sin(a), cos(a)];
@@ -106,6 +132,44 @@ classdef WorldState2D
                 zeroed(i).poses = p(:,(N*(i-1) + 1):(N*i));
             end
             
+        end
+       
+    end
+    
+    methods(Static)
+
+        % Returns the difference between the overlapping poses with another
+        % graph. We assume the IDs and times are sorted in ascending order.
+        function [diff] = Compare(a, b)            
+            
+            % Get subset of other graph corresponding to local times
+            t_matches = ismember([b.time], [a.time]);
+            if sum(t_matches) ~= numel(a)
+               error(['Comparison graph does not contain local subgraph.\n', ...
+                   'Local ID: ', num2str(a(1).ids), '\n', ...
+                   'Local t: ', num2str([a.time]), '\n', ...
+                   'Other ID: ', num2str(b(1).ids), '\n', ...
+                   'Other t: ', num2str([b.time])]);                    
+            end
+            b = b(t_matches);                      
+            
+            % Get subset of other graph that matches local
+            id_matches = ismember(b(1).ids, a(1).ids);            
+            T = numel(a);            
+            
+            %[idMap, tMap] = b.BuildMaps();
+            %id_ind = idMap.Forward(obj.base_id);
+            %t_ind = tMap.Forward(obj.base_time);            
+            %b_pose = b(t_ind).poses(:,id_ind);
+            %b = b.Shift(-b_pose(1:2));
+            %b = b.Rotate(-b_pose(3));
+            
+            other_poses = [b.poses];
+            other_poses = other_poses(:, repmat(id_matches, 1, T));
+            our_poses = [a.poses];
+            diff = other_poses - our_poses;
+            diff(3,:) = wrapToPi(diff(3,:));                    
+        
         end
         
     end

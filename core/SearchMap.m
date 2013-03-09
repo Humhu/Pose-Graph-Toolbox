@@ -19,14 +19,16 @@ classdef SearchMap < handle
         
         function [out] = Forward(obj, in)
             
-            out = obj.output_set(obj.input_set == in);
+            [~, ~, i] = intersect(in, obj.input_set);
+            out = obj.output_set(i)';
             
         end
         
         
         function [in] = Backward(obj, out)
            
-            in = obj.input_set(obj.output_set == out);
+            [~, ~, i] = intersect(out, obj.output_set);
+            in = obj.input_set(i)';
             
         end
         

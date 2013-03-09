@@ -88,14 +88,17 @@ classdef Simulator2D < handle
         
         % Call after adding robots and before stepping to generate first
         % state correctly
+        % TODO: Fix!
         function Initialize(obj)
+        
+        for i = 1:numel(obj.world.robots)
             
-            obj.world.Step();
-            obj.world.state.time = 0;
-            obj.history(1) = obj.world.state;            
-            obj.plotter.Clear();
-            obj.plotter.PlotSequence(obj.world.state);
-            
+            obj.world.robots(i).GenerateMeasurements(obj.world.state);
+
+        end
+        
+        obj.world.GenerateMeasurements();
+        
         end
         
         % Proceed N time steps
