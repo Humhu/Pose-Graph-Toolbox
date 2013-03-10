@@ -1,4 +1,0 @@
-Seeds and descriptions
-
-3 - 3 robots in a triangle
-1 - 10 robots in a cluster
