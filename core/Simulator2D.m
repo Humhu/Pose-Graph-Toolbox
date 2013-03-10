@@ -8,6 +8,7 @@ classdef Simulator2D < handle
         history = WorldState2D;     % Records of full state time sequence
         history_ind;
         
+        vis_on;
         plotter;     % Visualization
         recorder;    % Video file ID
         recording = false;
@@ -19,21 +20,24 @@ classdef Simulator2D < handle
         % Create a simulation manager and simulated world.
         % Takes arguments to set world size and initialize robots
         % optionally.
-        function [obj] = Simulator2D(world_size, seed)
+        function [obj] = Simulator2D(world_size, vis_mode)
             
             if nargin == 0
                 return
             end
             
-            if nargin == 2
-                stream = RandStream('mt19937ar', 'Seed', seed);
-                RandStream.setGlobalStream(stream);
+            if nargin == 1
+                vis_mode = true;
             end
-            
+                        
             obj.world = World2D(world_size); % Initialize world
-            obj.plotter = SequencePlotter(world_size); % Initialize visualization
-            obj.plotter.Label('Truth');
-            obj.plotter.z_scale = 0.1;
+            
+            obj.vis_on = vis_mode;
+            if vis_mode
+                obj.plotter = SequencePlotter(world_size); % Initialize visualization
+                obj.plotter.Label('Truth');
+                obj.plotter.z_scale = 0.1;
+            end
             
             obj.history(100) = WorldState2D;
             obj.history_ind = 1;
@@ -54,10 +58,12 @@ classdef Simulator2D < handle
             obj.history(obj.history_ind) = state;
             obj.history_ind = obj.history_ind + 1;
             
-            obj.plotter.Clear();
-            obj.plotter.SetColors(obj.world.GetNumRobots());
-            obj.plotter.PlotSequence(state);
-            
+            if obj.vis_on
+                obj.plotter.Clear();
+                obj.plotter.SetColors(obj.world.GetNumRobots());
+                obj.plotter.PlotSequence(state);
+            end
+                
         end
         
         function [plotter] = CreatePlotter(obj)
@@ -116,7 +122,9 @@ classdef Simulator2D < handle
                 state = obj.world.GetState();
                 localHist(localInd) = state;
                 localInd = localInd + 1;
-                obj.plotter.PlotSequence(state);
+                if obj.vis_on
+                    obj.plotter.PlotSequence(state);
+                end
             end
             
             obj.history(obj.history_ind:obj.history_ind + N - 1) = localHist;

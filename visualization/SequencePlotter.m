@@ -79,11 +79,11 @@ classdef SequencePlotter < Plotter2D
         
         function [] = PlotPoses(obj, state)
             
-            axes(obj.axe);
+%             axes(obj.axe);
             
             n = size(state.poses, 2);
             
-            hold on;
+%             hold on;
             for i = 1:n
                 p = state.poses(:,i);
                 color = obj.colors(i,:);
@@ -93,14 +93,14 @@ classdef SequencePlotter < Plotter2D
                 p = state.poses(:,i);
                 obj.PlotLabel(p, state.time, num2str(state.ids(i)));
             end
-            hold off;
+%             hold off;
             
         end
         
         function PlotMeasurements(obj, state)
             
-            axes(obj.axe);
-            hold on;
+%             axes(obj.axe);
+%             hold on;
             
             n = numel(state.measurements);
             for i = 1:n
@@ -112,7 +112,7 @@ classdef SequencePlotter < Plotter2D
                     %obj.PlotRelativePose(m.ToInverse());
                 end
             end
-            hold off;
+%             hold off;
             
         end
         
@@ -123,7 +123,7 @@ classdef SequencePlotter < Plotter2D
             tar_t = obj.tMap.Forward(m.target_time);
             obs_t = obj.tMap.Forward(m.observer_time);
             
-            if isempty(tar_t) || isempty(obs_t)
+            if isempty(tar_t) || isempty(obs_t) || isempty(tar_id) || isempty(obs_id)
                 return
             end
             

@@ -76,7 +76,11 @@ classdef Plotter2D < handle
         % Clear this plotter's axes
         function [] = Clear(obj)
             
-            cla(obj.axe);
+            %cla(obj.axe);
+            delete(obj.line_handles);
+            delete(obj.label_handles);
+            delete(obj.robot_handles);
+            refresh(obj.fig);
             obj.line_handles = hggroup('parent', obj.axe);
             obj.label_handles = hggroup('parent', obj.axe);
             obj.robot_handles = hggroup('parent', obj.axe);
@@ -179,7 +183,7 @@ classdef Plotter2D < handle
             c = V*D*c;
             c = bsxfun(@plus, c, p(1:2));
             c = [c; t*ones(1, obj.ellipse_points)];
-            h = plot3(c(1,:), c(2,:), c(3,:), '-b', 'LineWidth', obj.ellipse_thickness);
+            h = plot3(obj.axe, c(1,:), c(2,:), c(3,:), '-b', 'LineWidth', obj.ellipse_thickness);
             
         end
         

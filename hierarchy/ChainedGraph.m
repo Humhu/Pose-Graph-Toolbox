@@ -273,6 +273,18 @@ classdef ChainedGraph < handle
             end            
             our = obj.subgraph;
             
+            % Shift other subgraph into our reference frame
+            % ID = -1 stands for global frame
+            if obj.base_id ~= -1
+                other = other.Zero(obj.base_id, obj.base_time);
+%                 [idMap, tMap] = other.BuildMaps();                
+%                 id_ind = idMap.Forward(obj.base_id);
+%                 t_ind = tMap.Forward(obj.base_time);                
+%                 b_pose = other(t_ind).poses(:,id_ind);
+%                 other = other.Shift(-b_pose(1:2));
+%                 other = other.Rotate(-b_pose(3));
+            end
+            
             % Get subset of other graph corresponding to local times
             t_matches = ismember([other.time], [our.time]);
             if sum(t_matches) ~= numel(obj.subgraph)
@@ -286,14 +298,7 @@ classdef ChainedGraph < handle
             
             % Get subset of other graph that matches local
             id_matches = ismember(other(1).ids, our(1).ids);            
-            T = numel(our);            
-            
-            [idMap, tMap] = other.BuildMaps();
-            id_ind = idMap.Forward(obj.base_id);
-            t_ind = tMap.Forward(obj.base_time);
-            b_pose = other(t_ind).poses(:,id_ind);
-            other = other.Shift(-b_pose(1:2));
-            other = other.Rotate(-b_pose(3));
+            T = numel(our);                     
             
             other_poses = [other.poses];
             other_poses = other_poses(:, repmat(id_matches, 1, T));

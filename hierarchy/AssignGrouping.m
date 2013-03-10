@@ -8,7 +8,7 @@
 %   time_scales - K x 1 array, where time_scales(k) is the time scale at
 %   depth k -1
 
-function [robots] = AssignGrouping(robots, grouping, time_scales)
+function [robots] = AssignGrouping(robots, grouping, time_scales, time_overlaps)
 
 for k = 0:numel(grouping) - 1
    
@@ -23,7 +23,7 @@ for k = 0:numel(grouping) - 1
             
             ind = group(j);
             
-            role = HierarchyRole(k, time_scales(k + 1), 1);            
+            role = HierarchyRole(k, time_scales(k + 1), time_overlaps(k + 1));            
             followers(j) = role;
             
             robot = robots(ind);

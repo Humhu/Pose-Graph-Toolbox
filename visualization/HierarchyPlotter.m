@@ -60,18 +60,25 @@ classdef HierarchyPlotter < Plotter2D
         end
         
         function PlotBeliefs(obj, root)
-           
+            
+            if isa(root, 'HierarchyRole')
+                root = root.chained_graph;
+            end
+            
             r = root;
             hold(obj.axe, 'on');
+            
             while(~isempty(r))
                 curr = r(1);
                 r(1) = [];
-                graph = curr.chained_graph.subgraph;
-                graph_root_pos = curr.estimates(1);                
-                graph = graph.Rotate(graph_root_pos.rotation);
-                graph = graph.Shift(graph_root_pos.displacement);
+                curr = curr.ApplyLinks(curr.depth+1);
+                graph = curr.subgraph;
+%                 graph = curr.subgraph;
+%                 graph_root_pos = curr.estimates(1);                
+%                 graph = graph.Rotate(graph_root_pos.rotation);
+%                 graph = graph.Shift(graph_root_pos.displacement);
                 obj.PlotGraph(graph);
-                r = [r, curr.followers];
+                r = [r, curr.children];
             end
             
         end

@@ -110,27 +110,39 @@ classdef WorldState2D
             end
         end
         
-        function [zeroed] = Zero(obj, t_ind, id_ind)
+        function [zeroed] = Zero(obj, base_id, base_time)
             
             if nargin == 1
-                t_ind = 1;
-                id_ind = 1;
+                base_id = obj(1).ids(1);
+                base_time = obj(1).time;
             end
             
             zeroed = obj;
-            zero_pose = obj(t_ind).poses(:,id_ind);
-            a = zero_pose(3);
-            R = [cos(a), sin(a);
-                -sin(a), cos(a)];
+            [idMap, tMap] = zeroed.BuildMaps();
+            id_ind = idMap.Forward(base_id);
+            t_ind = tMap.Forward(base_time);
             
-            N = zeroed.GetDimension();
-            T = numel(zeroed);
-            p = [zeroed.poses];
-            p = bsxfun(@minus, p, zero_pose);
-            p(1:2,:) = R*p(1:2,:);
-            for i = 1:T
-                zeroed(i).poses = p(:,(N*(i-1) + 1):(N*i));
+            if isempty(id_ind) || isempty(t_ind)
+                return
             end
+            
+            zero_pose = obj(t_ind).poses(:,id_ind);
+            
+            zeroed = zeroed.Shift(-zero_pose(1:2));
+            zeroed = zeroed.Rotate(-zero_pose(3));
+            
+%             a = zero_pose(3);
+%             R = [cos(a), sin(a);
+%                 -sin(a), cos(a)];
+%             
+%             N = zeroed.GetDimension();
+%             T = numel(zeroed);
+%             p = [zeroed.poses];
+%             p = bsxfun(@minus, p, zero_pose);
+%             p(1:2,:) = R*p(1:2,:);
+%             for i = 1:T
+%                 zeroed(i).poses = p(:,(N*(i-1) + 1):(N*i));
+%             end
             
         end
        
