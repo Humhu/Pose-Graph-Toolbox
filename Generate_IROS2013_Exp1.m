@@ -78,7 +78,7 @@ r0 = sim.world.robots(1);
 r1 = sim.world.robots(2);
 r2 = sim.world.robots(3);
 r3 = sim.world.robots(4);
-n_steps = 20;
+n_steps = 5;
 
 truth_err_avg = zeros(d, n_steps);
 baseline_err_avg = zeros(d, n_steps);

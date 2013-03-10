@@ -99,6 +99,7 @@ classdef ChainedGraph < handle
                     'base ID: %d, ID scope: %4d'], base_id, state(1).ids);
             end
             obj.base_id = base_id;
+            obj.Zero();
             
         end
         
@@ -301,6 +302,25 @@ classdef ChainedGraph < handle
             diff(3,:) = wrapToPi(diff(3,:));
             
         end       
+        
+        % Returns a copy of this chained graph but set in a higher level
+        % reference frame. num_links specifies number of links to apply,
+        % with 0 links returning an unmodified copy.
+        function [shifted] = ApplyLinks(obj, num_links)
+           
+            shifted = obj.Copy();
+            
+            for i = 1:num_links
+               
+                link = shifted.chain(end-i+1);
+                shifted.subgraph = shifted.subgraph.Rotate(link.rotation);
+                shifted.subgraph = shifted.subgraph.Shift(link.displacement);
+                shifted.base_id = link.observer_id;
+                shifted.base_time = link.observer_time;
+                
+            end
+            
+        end
         
     end
     
