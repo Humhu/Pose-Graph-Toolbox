@@ -3,7 +3,7 @@
 % Use same seeds for each trial per experiment
 seeds = 1:30;
 num_trials = numel(seeds);
-trial_length = 20; % Number of steps to simulate per trial
+trial_length = 40; % Number of steps to simulate per trial
 
 % Test parameters
 %test_time_scales = [1, 2, 3];
@@ -22,6 +22,8 @@ accu_odo_ratios = zeros(num_experiments, 4, trial_length);
 
 % Other fixed parameters
 world_dims = [1;1];
+chain_holdoff = [1; 1; 1];
+representative_holdoff = [0; 0; 0];
 
 % Timing
 exp_mod = 10;
@@ -72,7 +74,7 @@ for k = 1:num_experiments
     rps = RelativePoseSensor();
     rps.maxRange = 0.6;
     rps.mean = [0;0;0];
-    rps.covariance = (0.005^2)*[1,   0,  0;
+    rps.covariance = (0.001^2)*[1,   0,  0;
         0,   1,  0;
         0,   0,  2];
     
@@ -118,7 +120,8 @@ for k = 1:num_experiments
         robots = InitRobots(r_template, {positions});
         grouping = GenerateGrouping(d, b);
         
-        AssignGrouping(robots, grouping, time_scales, time_overlaps); % Set up hierarchy and assign roles
+        AssignGrouping(robots, grouping, time_scales, time_overlaps, ...
+            chain_holdoff, representative_holdoff); % Set up hierarchy and assign roles
         
         % Add robots to simulator
         sim.AddRobots(robots);
@@ -148,18 +151,28 @@ for k = 1:num_experiments
 
         for i = 1:trial_length
 
+%             fprintf(['Step: ', num2str(i), '\n']);
+%             fprintf(['\tCG0 T: ', num2str(cg0_0.time_scope), '\tbT: ', num2str(cg0_0.base_time), '\n']);
+%             fprintf(['\tCG1 T: ', num2str(cg1_0.time_scope), '\tbT: ', num2str(cg1_0.base_time), '\n']);
+%             fprintf(['\tCG2 T: ', num2str(cg2_0.time_scope), '\tbT: ', num2str(cg2_0.base_time), '\n']);
+            
             sim.Step();
             truth = sim.history(1:sim.history_ind-1);
             [cg_errs, baseline_errs, odo_errs] = CalculateLocalGraphErrors(cg2_0, truth);
 
             for j = 1:d+1
 
-                cg_e = cg_errs{j};
+                cg_e = cg_errs{j};                
                 cg_e(3,:) = cg_e(3,:)/(2*pi);
-                b_e = baseline_errs{j};
+                b_e = baseline_errs{j};                
                 b_e(3,:) = b_e(3,:)/(2*pi);
                 o_e = odo_errs{j};
                 o_e(3,:) = o_e(3,:)/(2*pi);
+                
+                cg_e = cg_e(:,end);
+                b_e = b_e(:,end);
+                o_e = o_e(:,end);
+                
                 trial_estimate_errors(j, i) = mean(sqrt(sum(cg_e.*cg_e, 1)));
                 trial_baseline_errors(j, i) = mean(sqrt(sum(b_e.*b_e, 1)));
                 trial_odo_errors(j,i) = mean(sqrt(sum(o_e.*o_e, 1)));

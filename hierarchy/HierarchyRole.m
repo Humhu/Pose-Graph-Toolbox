@@ -25,9 +25,11 @@ classdef HierarchyRole < handle
     
     methods
         
-        function [obj] = HierarchyRole(level, time_scale, time_overlap)
+        function [obj] = HierarchyRole(level, time_scale, time_overlap, ...
+                chold, rhold)
             
-            obj.chained_graph = ChainedGraph(level, time_scale, time_overlap);
+            obj.chained_graph = ChainedGraph(level, time_scale, time_overlap, ...
+                chold, rhold);
             obj.higher_beliefs = MeasurementRelativePose.empty(1, 0);
             obj.tx_buffer = BinBuffer(1, 50);
             obj.rx_buffer = BinBuffer(1, 50);
@@ -335,7 +337,14 @@ classdef HierarchyRole < handle
         function TransmitChains(obj)
             
             relation = obj.chained_graph.CreateRelation('base', [0,0]);
-            relation.target_time = obj.chained_graph.time_scope(end);
+            %relation.target_time = obj.chained_graph.time_scope(end);
+            beta = obj.chained_graph.chain_holdoff;
+            if beta >= numel(obj.chained_graph.time_scope)
+                t_ind = 1;
+            else
+                t_ind = numel(obj.chained_graph.time_scope) - beta;
+            end
+            relation.target_time = obj.chained_graph.time_scope(t_ind);
             
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
@@ -354,7 +363,14 @@ classdef HierarchyRole < handle
             
             parent_scale = obj.chained_graph.parent.time_scale;
             start_time = obj.chained_graph.subgraph(1).time;
-            end_time = obj.chained_graph.subgraph(end).time;                        
+            
+            gamma = obj.chained_graph.representative_holdoff;
+            if gamma >= numel(obj.chained_graph.time_scope)
+                te_ind = 1;
+            else
+                te_ind = numel(obj.chained_graph.time_scope) - gamma;
+            end            
+            end_time = obj.chained_graph.subgraph(te_ind).time;                        
             
             representative_times = start_time:parent_scale:end_time;
             representatives = cell(1, numel(representative_times - 1));

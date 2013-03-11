@@ -15,7 +15,9 @@ classdef ChainedGraph < handle
         robot_scope = [];
         time_scope = [];
         time_scale = 1;
-        time_overlap = 1;
+        time_overlap = 1;  % After receiving new chain, contracts to new_base - time_overlap*parent_time_scale 
+        chain_holdoff = 0; % Sends chains from base to (latest_time - chain_holdoff)
+        representative_holdoff = 0; % Sends representatives up to (latest_time - representative_holdoff)
         
         base_id; % The actual ID, not mapped to index
         base_time; % The actual time, not mapped to index
@@ -28,7 +30,7 @@ classdef ChainedGraph < handle
     methods
         
         % Construct a chained graph        
-        function [obj] = ChainedGraph(depth, tscale, toverlap)
+        function [obj] = ChainedGraph(depth, tscale, toverlap, chold, rhold)
             
             % Default Tolerance 1E-6, maximum iterations 100
             obj.solver = GNSolver(1E-6, 100);
@@ -36,13 +38,16 @@ classdef ChainedGraph < handle
             obj.depth = depth;
             obj.time_scale = tscale;
             obj.time_overlap = toverlap;
+            obj.chain_holdoff = chold;
+            obj.representative_holdoff = rhold;
             
         end
         
         % Returns a shallow copy (doesn't copy parent, followers)
         function [new] = Copy(obj)
             
-            new = ChainedGraph(obj.depth, obj.time_scale, obj.time_overlap);
+            new = ChainedGraph(obj.depth, obj.time_scale, obj.time_overlap, ...
+                obj.chain_holdoff, obj.representative_holdoff);
             new.subgraph = obj.subgraph;
             new.chain = obj.chain;
             new.solver = obj.solver.Copy();
@@ -170,11 +175,15 @@ classdef ChainedGraph < handle
             
             % Marginalize by optimizing info leaving scope
             % Will initialize overlap state to prev state's poses
-            margin_graph = obj.subgraph(1:cut_ind);
-            margin_graph(end).poses = margin_graph(end-1).poses;
-            margin_graph(end).measurements = {};
-            [margin_graph, margin_cov] = obj.solver.Solve(margin_graph);
-                        
+            % EDIT: Turns out this seems bad. Just read off the graph for
+            % now.
+%             margin_graph = obj.subgraph(1:cut_ind);
+%             margin_graph(end).poses = margin_graph(end-1).poses;
+%             margin_graph(end).measurements = {};
+%             [margin_graph, margin_cov] = obj.solver.Solve(margin_graph);
+            margin_graph = obj.subgraph();
+            margin_cov = obj.estimate_covariance;
+
             nonbase_ids = obj.subgraph(1).ids;
             nonbase_ids(nonbase_ids == obj.base_id) = [];
             
@@ -277,12 +286,7 @@ classdef ChainedGraph < handle
             % ID = -1 stands for global frame
             if obj.base_id ~= -1
                 other = other.Zero(obj.base_id, obj.base_time);
-%                 [idMap, tMap] = other.BuildMaps();                
-%                 id_ind = idMap.Forward(obj.base_id);
-%                 t_ind = tMap.Forward(obj.base_time);                
-%                 b_pose = other(t_ind).poses(:,id_ind);
-%                 other = other.Shift(-b_pose(1:2));
-%                 other = other.Rotate(-b_pose(3));
+                %other = other.Zero(obj.base_id, obj.time_scope(1));
             end
             
             % Get subset of other graph corresponding to local times
