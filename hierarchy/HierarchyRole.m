@@ -285,10 +285,10 @@ classdef HierarchyRole < handle
             obj.chained_graph.Extend(latest_t);
             obj.chained_graph.Incorporate(measurements);
             
-            fprintf('Optimizing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
-                obj.chained_graph.depth, obj.time)
-            fprintf(['\t in robot scope: ', num2str(obj.chained_graph.robot_scope), ...
-                ' time scope: ', num2str(obj.chained_graph.time_scope), '\n']);
+            %fprintf('Optimizing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
+            %    obj.chained_graph.depth, obj.time)
+            %fprintf(['\t in robot scope: ', num2str(obj.chained_graph.robot_scope), ...
+            %    ' time scope: ', num2str(obj.chained_graph.time_scope), '\n']);
             obj.chained_graph.Optimize();
             
             % Inform leader here

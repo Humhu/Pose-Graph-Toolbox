@@ -104,6 +104,7 @@ classdef Simulator2D < handle
         end
         
         obj.world.GenerateMeasurements();
+        obj.history(1) = obj.world.state;
         
         end
         

@@ -46,12 +46,14 @@ classdef WorldState2D
             
             % Map ID-indices
             pinds = 1:numel(obj(1).ids);
-            idMap = SearchMap(obj(1).ids, pinds);
+            %idMap = SearchMap(obj(1).ids, pinds);
+            idMap = LinearMap(obj(1).ids, pinds);
             
             % Map time-indices
             times = [obj.time];
             tinds = 1:numel(times);
-            tMap = SearchMap(times, tinds);
+            %tMap = SearchMap(times, tinds);
+            tMap = LinearMap(times, tinds);
             
         end
         

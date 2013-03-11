@@ -1,7 +1,7 @@
 % Factorial testing over n, alpha with fixed random seeds
 
 % Use same seeds for each trial per experiment
-seeds = 25:25;
+seeds = 1:30;
 num_trials = numel(seeds);
 trial_length = 20; % Number of steps to simulate per trial
 
@@ -14,25 +14,41 @@ test_time_overlaps = 1;
 [time_scale_v, time_overlap_v] = ndgrid(test_time_scales, test_time_overlaps);
 num_experiments = numel(time_scale_v);
 
-estimate_errors = zeros(num_experiments, 4, trial_length);
-baseline_errors = zeros(num_experiments, 4, trial_length);
-error_ratios = zeros(num_experiments, 4, trial_length);
+accu_estimate_errors = zeros(num_experiments, 4, trial_length);
+accu_baseline_errors = zeros(num_experiments, 4, trial_length);
+accu_odo_errors = zeros(num_experiments, 4, trial_length);
+accu_baseline_ratios = zeros(num_experiments, 4, trial_length);
+accu_odo_ratios = zeros(num_experiments, 4, trial_length);
 
 % Other fixed parameters
 world_dims = [1;1];
 
+% Timing
+exp_mod = 10;
+tri_mod = 5;
+tic();
+
 for k = 1:num_experiments
     
+    if mod(k, exp_mod) == 1
+        now = toc();
+        runtime_estimate = toc()/(k-1)*num_experiments;
+        fprintf('Starting experiment %d/%d. ETA: %f sec\n', k, ...
+                num_experiments, runtime_estimate - toc());
+    end
+    
     experiment_estimate_errors = zeros(num_trials, 4, trial_length);
-    experiment_baseline_errors = zeros(num_trials, 4, trial_length);    
-    experiment_error_ratios = zeros(num_trials, 4, trial_length);
+    experiment_baseline_errors = zeros(num_trials, 4, trial_length); 
+    experiment_odo_errors = zeros(num_trials, 4, trial_length);
+    experiment_baseline_ratios = zeros(num_trials, 4, trial_length);
+    experiment_odo_ratios = zeros(num_trials, 4, trial_length);
     
     tscale = time_scale_v(k);
     toverlap = time_overlap_v(k);
-    
-    time_scales = [9, 3, 1];
-    %time_scales = tscale.^(2:-1:0);
+        
+    time_scales = tscale.^(2:-1:0);
     time_overlaps = [toverlap*ones(1,2),0];
+    %time_overlaps = toverlap*ones(1,3);
     
     %Initialize example robots
     % Motion controller
@@ -77,6 +93,15 @@ for k = 1:num_experiments
     
     for s = 1:num_trials
 
+        if mod(s, tri_mod) == 1
+            now = toc();
+            done = (k-1)*num_trials + s-1;
+            to_do = num_trials*num_experiments;
+            runtime_est = now/done*to_do;
+            fprintf('\tStarting experiment %d Trial %d/%d. ETA: %f\n', k, ...
+                s, num_trials, runtime_est - now);
+        end
+        
         % Seed random number generator
         seed = seeds(s);      
         stream = RandStream('mt19937ar', 'Seed', seed);
@@ -113,6 +138,7 @@ for k = 1:num_experiments
 
         trial_estimate_errors = zeros(d+1, trial_length);
         trial_baseline_errors = zeros(d+1, trial_length);        
+        trial_odo_errors = zeros(d+1, trial_length);
         
         % Only looking at robot 0's chained graphs for now
         cg0_0 = r_template.roles(1).chained_graph;
@@ -124,7 +150,7 @@ for k = 1:num_experiments
 
             sim.Step();
             truth = sim.history(1:sim.history_ind-1);
-            [cg_errs, baseline_errs] = CalculateLocalGraphErrors(cg2_0, truth);
+            [cg_errs, baseline_errs, odo_errs] = CalculateLocalGraphErrors(cg2_0, truth);
 
             for j = 1:d+1
 
@@ -132,37 +158,57 @@ for k = 1:num_experiments
                 cg_e(3,:) = cg_e(3,:)/(2*pi);
                 b_e = baseline_errs{j};
                 b_e(3,:) = b_e(3,:)/(2*pi);
+                o_e = odo_errs{j};
+                o_e(3,:) = o_e(3,:)/(2*pi);
                 trial_estimate_errors(j, i) = mean(sqrt(sum(cg_e.*cg_e, 1)));
                 trial_baseline_errors(j, i) = mean(sqrt(sum(b_e.*b_e, 1)));
+                trial_odo_errors(j,i) = mean(sqrt(sum(o_e.*o_e, 1)));
             end
 
         end
-        trial_error_ratios = trial_estimate_errors./trial_baseline_errors;
+        trial_baseline_ratios = trial_estimate_errors./trial_baseline_errors;
+        trial_odo_ratios = trial_estimate_errors./trial_odo_errors;
         
         experiment_estimate_errors(s,:,:) = trial_estimate_errors;
         experiment_baseline_errors(s,:,:) = trial_baseline_errors;
-        experiment_error_ratios(s,:,:) = trial_error_ratios;
-    
+        experiment_odo_errors(s,:,:) = trial_odo_errors;
+        experiment_baseline_ratios(s,:,:) = trial_baseline_ratios;
+        experiment_odo_ratios(s,:,:) = trial_odo_ratios;
+        
     end
         
-    estimate_errors(k,:,:) = mean(experiment_estimate_errors, 1);
-    baseline_errors(k,:,:) = mean(experiment_baseline_errors, 1);
-    error_ratios(k,:,:) = mean(experiment_error_ratios, 1);
+    accu_estimate_errors(k,:,:) = mean(experiment_estimate_errors, 1);
+    accu_baseline_errors(k,:,:) = mean(experiment_baseline_errors, 1);
+    accu_odo_errors(k,:,:) = mean(experiment_odo_errors, 1);
+    accu_baseline_ratios(k,:,:) = mean(experiment_baseline_ratios, 1);
+    accu_odo_ratios(k,:,:) = mean(experiment_odo_ratios, 1);
     
 end
 
 %% Plotting    
 figure;
 hold on;
-plot(0:trial_length-1, squeeze(error_ratios(1,1,:)), 'ro-');
-plot(0:trial_length-1, squeeze(error_ratios(1,2,:)), 'bx-');
-plot(0:trial_length-1, squeeze(error_ratios(1,3,:)), 'g+-');
+plot(0:trial_length-1, squeeze(accu_baseline_ratios(1,1,:)), 'ro-');
+plot(0:trial_length-1, squeeze(accu_baseline_ratios(1,2,:)), 'bx-');
+plot(0:trial_length-1, squeeze(accu_baseline_ratios(1,3,:)), 'g+-');
 plot([0,trial_length-1], [1,1], 'k--');
 %plot(0:n_step-1, est_baseline_ratio(1,:), 'r');
 xlabel('Step number');
 ylabel('Estimate error/Baseline error');
 legend('Depth 2', 'Depth 1', 'Depth 0', 'location', 'best');
 title('Baseline Performance Ratio vs. Steps');
+
+figure;
+hold on;
+plot(0:trial_length-1, squeeze(accu_odo_ratios(1,1,:)), 'ro-');
+plot(0:trial_length-1, squeeze(accu_odo_ratios(1,2,:)), 'bx-');
+plot(0:trial_length-1, squeeze(accu_odo_ratios(1,3,:)), 'g+-');
+plot([0,trial_length-1], [1,1], 'k--');
+%plot(0:n_step-1, est_baseline_ratio(1,:), 'r');
+xlabel('Step number');
+ylabel('Estimate error/Baseline error');
+legend('Depth 2', 'Depth 1', 'Depth 0', 'location', 'best');
+title('Odometry Performance Ratio vs. Steps');
 
 % figure;
 % hold on;
@@ -205,6 +251,8 @@ truth = sim.history(1:sim.history_ind-1);
 % Get comparison estimate
 gn = GNSolver(1E-6, 100);
 baseline_est = gn.Solve(truth);
+odo = OdometrySolver();
+odo_est = odo.Solve(truth);
 
 % Plot results
 truth_plotter = SequencePlotter(world_dims);
@@ -218,6 +266,12 @@ baseline_plotter.Link(truth_plotter);
 baseline_plotter.colors = repmat([0,0,1],4,1);
 baseline_plotter.PlotSequence(baseline_est);
 
+odo_plotter = SequencePlotter(world_dims);
+odo_plotter.z_scale = 0.1;
+odo_plotter.Link(truth_plotter);
+odo_plotter.colors = repmat([1,0,1],4,1);
+odo_plotter.PlotSequence(odo_est);
+
 belief_plotter = HierarchyPlotter(world_dims);
 belief_plotter.z_scale = 0.1;
 belief_plotter.Link(truth_plotter);
@@ -228,4 +282,6 @@ truth_plotter.HideLines();
 truth_plotter.HideLabels();
 baseline_plotter.HideLines();
 baseline_plotter.HideLabels();
+odo_plotter.HideLines();
+odo_plotter.HideLabels();
 

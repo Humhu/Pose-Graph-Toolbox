@@ -51,9 +51,12 @@ classdef GNSolver < handle
             end
             
             rem = Inf;
-            solution = sequence;
+            solution = sequence;                        
+            % Measurements don't change per iteration
+            measurements = FlattenCell({solution.measurements});
+            
             while(norm(rem) > obj.tolerance)
-                [solution, rem, cov] = obj.Iterate(solution, anchor);
+                [solution, rem, cov] = obj.Iterate(solution, measurements, anchor);
                 obj.iterations = obj.iterations + 1;
                 %fprintf(['Iteration: ', num2str(obj.iterations), ...
                 %    '\tDelta max: ', num2str(norm(rem)), '\n']);
@@ -65,21 +68,19 @@ classdef GNSolver < handle
     
     methods(Access = private)        
         
-        function [solution, delta, covs] = Iterate(obj, sequence, anchor)
+        function [solution, delta, covs] = Iterate(obj, sequence, measurements, anchor)
             
             T = numel(sequence);
             N = sequence.GetDimension();
             
             % System Jacobian matrix
             H = zeros(3*N*T, 3*N*T);
-            b = zeros(3*N*T, 1);
+            b = zeros(3*N*T, 1);           
             
-            % Build matrices using measurements
-            measurements = FlattenCell({sequence.measurements});
             %used = {};
             for i = 1:numel(measurements)
                 
-                m = measurements{i};
+                m = measurements{i};                
                 
                 % Map into sequence indices
                 obs_t = obj.tMap.Forward(m.observer_time);
@@ -105,7 +106,7 @@ classdef GNSolver < handle
                 dX = tar_p(1:2) - obs_p(1:2);
                 dA = tar_p(3) - obs_p(3);
                 z = [m.displacement; m.rotation];
-                info = inv(m.covariance);
+                %info = inv(m.covariance);
                 
                 % Calculate measurement error
                 e = [R*dX; dA] - z;
@@ -117,8 +118,10 @@ classdef GNSolver < handle
                 J_tar = [R,          zeros(2,1);
                     zeros(1,2), 1];
                 J = [J_obs, J_tar];
-                Hij = J'*info*J;
-                bij = e'*info*J;
+                %Hij = J'*info*J;
+                Hij = J'*(m.covariance\J);
+                %bij = e'*info*J;
+                bij = e'*(m.covariance\J);
                 
                 % Add matrix into appropriate blocks
                 obs_istart = 3*N*(obs_t - 1) + 3*(obs_id-1) + 1;
