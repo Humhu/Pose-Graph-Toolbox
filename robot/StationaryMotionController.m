@@ -24,7 +24,7 @@ classdef StationaryMotionController < handle & MotionController
             
         end
         
-        function [u] = GenerateOutputs(obj, beliefs);
+        function [u] = GenerateOutputs(obj, beliefs)
             
             u =  obj.ref;
             

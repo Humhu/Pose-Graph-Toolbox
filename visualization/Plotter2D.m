@@ -18,9 +18,9 @@ classdef Plotter2D < handle
         robot_handles;
         
         % Parameters
-        tick_length     = 0.04;
+        tick_length     = 0.4;
         tick_thickness  = 2;
-        robot_size      = 0.025;
+        robot_size      = 0.75; % 30 inches ~= 0.75 meters
         robot_thickness = 2;
         circle_points   = 8;
         ellipse_points = 16;
@@ -140,15 +140,28 @@ classdef Plotter2D < handle
             
             % Plot circle
             h = hggroup;
-            obj.PlotPolygon([x,y,t], s*obj.robot_size, obj.circle_points, ...
-                {'Color', c, 'LineWidth', obj.robot_thickness, 'parent', h});
+            points = [0.7, -0.3, -0.3, 0.7;
+                      0,  -0.3,  0.3,  0];
+            points = s*obj.robot_size*points;
+            
+            a = p(3);
+            R = [cos(a), -sin(a);
+                 sin(a), cos(a)];
+            points = bsxfun(@plus, R*points,  p(1:2));
+            
+            points(3,:) = obj.z_scale*t*ones(1,4);
+            plot3(obj.axe, points(1,:), points(2,:), points(3,:), ...
+                'Color', c, 'LineWidth', obj.robot_thickness, 'parent', h);
+                  
+%             obj.PlotPolygon([x,y,t], s*obj.robot_size, obj.circle_points, ...
+%                 {'Color', c, 'LineWidth', obj.robot_thickness, 'parent', h});
             
             % Plot orientation tick
-            a = p(3);
-            dx = s*obj.tick_length*cos(a);
-            dy = s*obj.tick_length*sin(a);            
-            obj.PlotLine([x, y, t], [x + dx, y + dy, t], ...
-                {'Color', c, 'LineWidth', obj.tick_thickness, 'parent', h});
+%             a = p(3);
+%             dx = s*obj.tick_length*cos(a);
+%             dy = s*obj.tick_length*sin(a);            
+%             obj.PlotLine([x, y, t], [x + dx, y + dy, t], ...
+%                 {'Color', c, 'LineWidth', obj.tick_thickness, 'parent', h});
             set(h, 'parent', obj.robot_handles);
             
         end

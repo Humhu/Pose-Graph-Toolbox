@@ -50,11 +50,13 @@ classdef RelativePoseSensor < handle & Sensor
                 target_pose = state.poses(:, i);
                 rel = target_pose - p;
                 rel(3) = wrapToPi(rel(3));
-                if norm(rel(1:2)) > obj.maxRange
+                range = norm(rel(1:2));
+                if range > obj.maxRange
                     continue
                 end
                 
-                m = MeasurementRelativePose(p, target_pose, obj.covariance);
+                cov = range*obj.covariance;
+                m = MeasurementRelativePose(p, target_pose, cov);
                 m.observer_id = obj.ownerID;
                 m.target_id = target_id;
                 m.observer_time = state.time;

@@ -25,7 +25,8 @@ for k = 0:numel(grouping) - 1
             ind = group(j);
             
             role = HierarchyRole(k, time_scales(k + 1), time_overlaps(k + 1), ...
-                chain_holdoffs(k + 1), rep_holdoffs(k + 1));            
+                chain_holdoffs(k + 1), rep_holdoffs(k + 1));   
+            %role.max_time_length = max_times(k + 1);
             followers(j) = role;
             
             robot = robots(ind);

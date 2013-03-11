@@ -49,6 +49,13 @@ classdef Robot < handle
             
         end
         
+        % Initializes software and modules
+        function Initialize(obj, state)
+            
+            obj.motionController.Initialize(state);
+            
+        end
+        
         % TODO: Make this less hacky somehow
         % Perhaps store a robot handle in the sensors instead of ID?
         function [] = SetID(obj, id)

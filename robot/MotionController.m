@@ -12,6 +12,9 @@ classdef MotionController < handle
        
         % Produce control outputs 
         [u] = GenerateOutputs(obj, beliefs); 
+       
+        % Initialize if needed
+        Initialize(obj, state);
         
     end
     

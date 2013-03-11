@@ -1,9 +1,9 @@
 % Factorial testing over n, alpha with fixed random seeds
 
 % Use same seeds for each trial per experiment
-seeds = 1:30;
+seeds = 30:30;
 num_trials = numel(seeds);
-trial_length = 40; % Number of steps to simulate per trial
+trial_length = 120; % Number of steps to simulate per trial
 
 % Test parameters
 %test_time_scales = [1, 2, 3];
@@ -14,87 +14,59 @@ test_time_overlaps = 1;
 [time_scale_v, time_overlap_v] = ndgrid(test_time_scales, test_time_overlaps);
 num_experiments = numel(time_scale_v);
 
-accu_estimate_errors = zeros(num_experiments, 4, trial_length);
-accu_baseline_errors = zeros(num_experiments, 4, trial_length);
-accu_odo_errors = zeros(num_experiments, 4, trial_length);
-accu_baseline_ratios = zeros(num_experiments, 4, trial_length);
-accu_odo_ratios = zeros(num_experiments, 4, trial_length);
+estimate_errors = zeros(num_experiments, 4, trial_length);
+baseline_errors = zeros(num_experiments, 4, trial_length);
+odo_errors = zeros(num_experiments, 4, trial_length);
+baseline_ratios = zeros(num_experiments, 4, trial_length);
+odo_ratios = zeros(num_experiments, 4, trial_length);
 
 % Other fixed parameters
-world_dims = [1;1];
+world_dims = [30;10];
 chain_holdoff = [1; 1; 1];
 representative_holdoff = [0; 0; 0];
+
+% Fractal positioning parameters
+center = [-10; 0; 0]; %zeros(3,1);
+d = 3; % Hierarchy depth
+b = 2; % Branching factor
+f = 0.5; % Fractal size
+r = 5; % Starting separation
+covariance = zeros(3);
 
 % Timing
 exp_mod = 10;
 tri_mod = 5;
-tic();
 
+%% Experiment loops
+tic();
 for k = 1:num_experiments
     
     if mod(k, exp_mod) == 1
         now = toc();
         runtime_estimate = toc()/(k-1)*num_experiments;
         fprintf('Starting experiment %d/%d. ETA: %f sec\n', k, ...
-                num_experiments, runtime_estimate - toc());
+            num_experiments, runtime_estimate - toc());
     end
     
+    % Store errors
     experiment_estimate_errors = zeros(num_trials, 4, trial_length);
-    experiment_baseline_errors = zeros(num_trials, 4, trial_length); 
+    experiment_baseline_errors = zeros(num_trials, 4, trial_length);
     experiment_odo_errors = zeros(num_trials, 4, trial_length);
     experiment_baseline_ratios = zeros(num_trials, 4, trial_length);
     experiment_odo_ratios = zeros(num_trials, 4, trial_length);
     
     tscale = time_scale_v(k);
     toverlap = time_overlap_v(k);
-        
+    
     time_scales = tscale.^(2:-1:0);
     time_overlaps = [toverlap*ones(1,2),0];
-    %time_overlaps = toverlap*ones(1,3);
     
-    %Initialize example robots
-    % Motion controller
-    mc = OrbitMotionController();
-    mc.ref = 0; %TODO: unused
-    mc.motionGain = 0.1;
+    % Initialize pre-defined template robot
+    r_template = GenerateStraightRobot(world_dims);
     
-    % Motion Model
-    mm = GaussianMotionModel();
-    mm.mean = [0;0;0];
-    %mm.covariance = (0.02)^2*eye(3);
-    mm.covariance = (0.01^2)*[1,    0,  0;
-        0,    1,  0;
-        0,    0,  2];
-    mm.input_limits = [Inf*ones(3,1), -Inf*ones(3,1)];
-    mm.output_limits = [world_dims/2, -world_dims/2;
-        Inf, -Inf];
-    mm.output_wrapping = boolean([0,0,1]);
-    
-    % Sensor
-    rps = RelativePoseSensor();
-    rps.maxRange = 0.6;
-    rps.mean = [0;0;0];
-    rps.covariance = (0.001^2)*[1,   0,  0;
-        0,   1,  0;
-        0,   0,  2];
-    
-    % Robots
-    r_template = Robot();
-    r_template.RegisterMotionController(mc);
-    r_template.RegisterMotionModel(mm);
-    r_template.RegisterSensor(rps);
-    
-    % Place robots
-    % Generate positions
-    center = zeros(3,1);
-    d = 3;
-    b = 2;
-    f = 0.5;
-    r = 0.25;
-    covariance = zeros(3);       
-    
+    % Run trials for this experimental configuration
     for s = 1:num_trials
-
+        
         if mod(s, tri_mod) == 1
             now = toc();
             done = (k-1)*num_trials + s-1;
@@ -105,12 +77,12 @@ for k = 1:num_experiments
         end
         
         % Seed random number generator
-        seed = seeds(s);      
+        seed = seeds(s);
         stream = RandStream('mt19937ar', 'Seed', seed);
         RandStream.setGlobalStream(stream);
         
         % Start simulation
-        sim = Simulator2D(world_dims, false);
+        sim = Simulator2D(world_dims, true);
         
         % Generate robots
         positions = GenerateFractal(center, b, r, f, d, covariance, 0);
@@ -133,51 +105,35 @@ for k = 1:num_experiments
         root = sim.world.robots(1).roles(1); %hardcoded for now
         root.Initialize(init); % Initializes the entire tree
         
+        leafs = ChainedGraph.empty(0, numel(sim.world.robots));
+        for i = 1:numel(sim.world.robots)
+            leafs(i) = sim.world.robots(i).roles(end).chained_graph;
+        end
+        
         % Run simulator and calculate errors
         r_template = sim.world.robots(1);
         r1 = sim.world.robots(2);
         r2 = sim.world.robots(3);
-        r3 = sim.world.robots(4);        
-
+        r3 = sim.world.robots(4);
+        
         trial_estimate_errors = zeros(d+1, trial_length);
-        trial_baseline_errors = zeros(d+1, trial_length);        
+        trial_baseline_errors = zeros(d+1, trial_length);
         trial_odo_errors = zeros(d+1, trial_length);
         
-        % Only looking at robot 0's chained graphs for now
-        cg0_0 = r_template.roles(1).chained_graph;
-        cg1_0 = r_template.roles(2).chained_graph;
-        cg2_0 = r_template.roles(3).chained_graph;
-        r0_cgs = [cg0_0, cg1_0, cg2_0];
-
         for i = 1:trial_length
-
-%             fprintf(['Step: ', num2str(i), '\n']);
-%             fprintf(['\tCG0 T: ', num2str(cg0_0.time_scope), '\tbT: ', num2str(cg0_0.base_time), '\n']);
-%             fprintf(['\tCG1 T: ', num2str(cg1_0.time_scope), '\tbT: ', num2str(cg1_0.base_time), '\n']);
-%             fprintf(['\tCG2 T: ', num2str(cg2_0.time_scope), '\tbT: ', num2str(cg2_0.base_time), '\n']);
+            
+            fprintf(['Step: ', num2str(i), '\n']);
+            %             fprintf(['\tCG0 T: ', num2str(cg0_0.time_scope), '\tbT: ', num2str(cg0_0.base_time), '\n']);
+            %             fprintf(['\tCG1 T: ', num2str(cg1_0.time_scope), '\tbT: ', num2str(cg1_0.base_time), '\n']);
+            %             fprintf(['\tCG2 T: ', num2str(cg2_0.time_scope), '\tbT: ', num2str(cg2_0.base_time), '\n']);
             
             sim.Step();
             truth = sim.history(1:sim.history_ind-1);
-            [cg_errs, baseline_errs, odo_errs] = CalculateLocalGraphErrors(cg2_0, truth);
-
-            for j = 1:d+1
-
-                cg_e = cg_errs{j};                
-                cg_e(3,:) = cg_e(3,:)/(2*pi);
-                b_e = baseline_errs{j};                
-                b_e(3,:) = b_e(3,:)/(2*pi);
-                o_e = odo_errs{j};
-                o_e(3,:) = o_e(3,:)/(2*pi);
-                
-                cg_e = cg_e(:,end);
-                b_e = b_e(:,end);
-                o_e = o_e(:,end);
-                
-                trial_estimate_errors(j, i) = mean(sqrt(sum(cg_e.*cg_e, 1)));
-                trial_baseline_errors(j, i) = mean(sqrt(sum(b_e.*b_e, 1)));
-                trial_odo_errors(j,i) = mean(sqrt(sum(o_e.*o_e, 1)));
-            end
-
+            [cg_errs, baseline_errs, odo_errs] = CalculateLeafGraphErrors(leafs, truth);                        
+            trial_estimate_errors(:, i) = mean(cg_errs, 2);
+            trial_baseline_errors(:, i) = mean(baseline_errs, 2);
+            trial_odo_errors(:, i) = mean(odo_errs, 2);
+            
         end
         trial_baseline_ratios = trial_estimate_errors./trial_baseline_errors;
         trial_odo_ratios = trial_estimate_errors./trial_odo_errors;
@@ -189,21 +145,21 @@ for k = 1:num_experiments
         experiment_odo_ratios(s,:,:) = trial_odo_ratios;
         
     end
-        
-    accu_estimate_errors(k,:,:) = mean(experiment_estimate_errors, 1);
-    accu_baseline_errors(k,:,:) = mean(experiment_baseline_errors, 1);
-    accu_odo_errors(k,:,:) = mean(experiment_odo_errors, 1);
-    accu_baseline_ratios(k,:,:) = mean(experiment_baseline_ratios, 1);
-    accu_odo_ratios(k,:,:) = mean(experiment_odo_ratios, 1);
+    
+    estimate_errors(k,:,:) = mean(experiment_estimate_errors, 1);
+    baseline_errors(k,:,:) = mean(experiment_baseline_errors, 1);
+    odo_errors(k,:,:) = mean(experiment_odo_errors, 1);
+    baseline_ratios(k,:,:) = mean(experiment_baseline_ratios, 1);
+    odo_ratios(k,:,:) = mean(experiment_odo_ratios, 1);
     
 end
 
-%% Plotting    
+%% Plotting
 figure;
 hold on;
-plot(0:trial_length-1, squeeze(accu_baseline_ratios(1,1,:)), 'ro-');
-plot(0:trial_length-1, squeeze(accu_baseline_ratios(1,2,:)), 'bx-');
-plot(0:trial_length-1, squeeze(accu_baseline_ratios(1,3,:)), 'g+-');
+plot(0:trial_length-1, squeeze(baseline_ratios(1,1,:)), 'ro-');
+plot(0:trial_length-1, squeeze(baseline_ratios(1,2,:)), 'bx-');
+plot(0:trial_length-1, squeeze(baseline_ratios(1,3,:)), 'g+-');
 plot([0,trial_length-1], [1,1], 'k--');
 %plot(0:n_step-1, est_baseline_ratio(1,:), 'r');
 xlabel('Step number');
@@ -213,9 +169,9 @@ title('Baseline Performance Ratio vs. Steps');
 
 figure;
 hold on;
-plot(0:trial_length-1, squeeze(accu_odo_ratios(1,1,:)), 'ro-');
-plot(0:trial_length-1, squeeze(accu_odo_ratios(1,2,:)), 'bx-');
-plot(0:trial_length-1, squeeze(accu_odo_ratios(1,3,:)), 'g+-');
+plot(0:trial_length-1, squeeze(odo_ratios(1,1,:)), 'ro-');
+plot(0:trial_length-1, squeeze(odo_ratios(1,2,:)), 'bx-');
+plot(0:trial_length-1, squeeze(odo_ratios(1,3,:)), 'g+-');
 plot([0,trial_length-1], [1,1], 'k--');
 %plot(0:n_step-1, est_baseline_ratio(1,:), 'r');
 xlabel('Step number');
@@ -223,78 +179,82 @@ ylabel('Estimate error/Baseline error');
 legend('Depth 2', 'Depth 1', 'Depth 0', 'location', 'best');
 title('Odometry Performance Ratio vs. Steps');
 
-% figure;
-% hold on;
-% plot(0:num_trials-1, truth_err_avg(1,:), 'r');
-% plot(0:num_trials-1, baseline_err_avg(1,:), 'b');
-% xlabel('Step number');
-% ylabel('Average error norm');
-% legend('Estimate', 'Global Optimum', 'location', 'best')
-% title('Depth 2 Estimate vs. Baseline Localized Error');
-% 
-% figure;
-% hold on;
-% plot(0:num_trials-1, truth_err_avg(2,:), 'r');
-% plot(0:num_trials-1, baseline_err_avg(2,:), 'b');
-% xlabel('Step number');
-% ylabel('Average error norm');
-% legend('Estimate', 'Global Optimum', 'location', 'best')
-% title('Depth 1 Estimate vs. Baseline Localized Error');
-% 
-% figure;
-% hold on;
-% plot(0:num_trials-1, truth_err_avg(3,:), 'r');
-% plot(0:num_trials-1, baseline_err_avg(3,:), 'b');
-% xlabel('Step number');
-% ylabel('Average error norm');
-% legend('Estimate', 'Global Optimum', 'location', 'best')
-% title('Depth 0 Estimate vs. Baseline Localized Error');
-% 
-% figure;
-% hold on;
-% plot(0:num_trials-1, truth_err_avg(4,:), 'r');
-% plot(0:num_trials-1, baseline_err_avg(4,:), 'b');
-% xlabel('Step number');
-% ylabel('Average error norm');
-% legend('Estimate', 'Global Optimum', 'location', 'best')
-% title('Global Frame Estimate vs. Baseline Localized Error');
+figure;
+hold on;
+plot(0:trial_length-1, squeeze(estimate_errors(1,1,:)), 'r');
+plot(0:trial_length-1, squeeze(baseline_errors(1,1,:)), 'b');
+xlabel('Step number');
+ylabel('Average error norm');
+legend('Estimate', 'Global Optimum', 'location', 'best')
+title('Depth 2 Estimate vs. Baseline Localized Error');
+
+figure;
+hold on;
+plot(0:trial_length-1, squeeze(estimate_errors(1,2,:)), 'r');
+plot(0:trial_length-1, squeeze(baseline_errors(1,2,:)), 'b');
+xlabel('Step number');
+ylabel('Average error norm');
+legend('Estimate', 'Global Optimum', 'location', 'best')
+title('Depth 1 Estimate vs. Baseline Localized Error');
+
+figure;
+hold on;
+plot(0:trial_length-1, squeeze(estimate_errors(1,3,:)), 'r');
+plot(0:trial_length-1, squeeze(baseline_errors(1,3,:)), 'b');
+xlabel('Step number');
+ylabel('Average error norm');
+legend('Estimate', 'Global Optimum', 'location', 'best')
+title('Depth 0 Estimate vs. Baseline Localized Error');
+
+figure;
+hold on;
+plot(0:trial_length-1, squeeze(estimate_errors(1,4,:)), 'r');
+plot(0:trial_length-1, squeeze(baseline_errors(1,4,:)), 'b');
+xlabel('Step number');
+ylabel('Average error norm');
+legend('Estimate', 'Global Optimum', 'location', 'best')
+title('Global Frame Estimate vs. Baseline Localized Error');
 
 truth = sim.history(1:sim.history_ind-1);
 
-% Get comparison estimate
-gn = GNSolver(1E-6, 100);
-baseline_est = gn.Solve(truth);
-odo = OdometrySolver();
-odo_est = odo.Solve(truth);
+%% Get comparison estimate
 
-% Plot results
-truth_plotter = SequencePlotter(world_dims);
-truth_plotter.z_scale = 0.1;
-truth_plotter.colors = repmat([0,1,0],4,1);
-truth_plotter.PlotSequence(truth);
-
-baseline_plotter = SequencePlotter(world_dims);
-baseline_plotter.z_scale = 0.1;
-baseline_plotter.Link(truth_plotter);
-baseline_plotter.colors = repmat([0,0,1],4,1);
-baseline_plotter.PlotSequence(baseline_est);
-
-odo_plotter = SequencePlotter(world_dims);
-odo_plotter.z_scale = 0.1;
-odo_plotter.Link(truth_plotter);
-odo_plotter.colors = repmat([1,0,1],4,1);
-odo_plotter.PlotSequence(odo_est);
-
-belief_plotter = HierarchyPlotter(world_dims);
-belief_plotter.z_scale = 0.1;
-belief_plotter.Link(truth_plotter);
-belief_plotter.colors = repmat([1,0,0],4,1);
-belief_plotter.PlotBeliefs(sim.world.robots(1).roles(1));
-
-truth_plotter.HideLines();
-truth_plotter.HideLabels();
-baseline_plotter.HideLines();
-baseline_plotter.HideLabels();
-odo_plotter.HideLines();
-odo_plotter.HideLabels();
-
+if true
+    gn = GNSolver(1E-6, 100);
+    baseline_est = gn.Solve(truth);
+    odo = OdometrySolver();
+    odo_est = odo.Solve(truth);
+    
+    N = numel(sim.world.robots);
+    
+    %Plot results
+    truth_plotter = SequencePlotter(world_dims);
+    truth_plotter.z_scale = 1;
+    truth_plotter.colors = repmat([0,1,0],N,1);
+    truth_plotter.PlotSequence(truth);
+    
+    baseline_plotter = SequencePlotter(world_dims);
+    baseline_plotter.z_scale = 1;
+    baseline_plotter.Link(truth_plotter);
+    baseline_plotter.colors = repmat([0,0,1],N,1);
+    baseline_plotter.PlotSequence(baseline_est);
+    
+    odo_plotter = SequencePlotter(world_dims);
+    odo_plotter.z_scale = 1;
+    odo_plotter.Link(truth_plotter);
+    odo_plotter.colors = repmat([1,0,1],N,1);
+    odo_plotter.PlotSequence(odo_est);
+    
+    belief_plotter = HierarchyPlotter(world_dims);
+    belief_plotter.z_scale = 1;
+    belief_plotter.Link(truth_plotter);
+    belief_plotter.colors = repmat([1,0,0],N,1);
+    belief_plotter.PlotBeliefs(sim.world.robots(1).roles(1));
+    
+    truth_plotter.HideLines();
+    truth_plotter.HideLabels();
+    baseline_plotter.HideLines();
+    baseline_plotter.HideLabels();
+    odo_plotter.HideLines();
+    odo_plotter.HideLabels();
+end

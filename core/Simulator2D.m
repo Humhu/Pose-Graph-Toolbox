@@ -29,7 +29,7 @@ classdef Simulator2D < handle
             if nargin == 1
                 vis_mode = true;
             end
-                        
+            
             obj.world = World2D(world_size); % Initialize world
             
             obj.vis_on = vis_mode;
@@ -63,7 +63,7 @@ classdef Simulator2D < handle
                 obj.plotter.SetColors(obj.world.GetNumRobots());
                 obj.plotter.PlotSequence(state);
             end
-                
+            
         end
         
         function [plotter] = CreatePlotter(obj)
@@ -96,16 +96,22 @@ classdef Simulator2D < handle
         % state correctly
         % TODO: Fix!
         function Initialize(obj)
-        
-        for i = 1:numel(obj.world.robots)
+                        
+            for i = 1:numel(obj.world.robots)
+               
+                obj.world.robots(i).Initialize(obj.world.state);
+                
+            end
             
-            obj.world.robots(i).GenerateMeasurements(obj.world.state);
-
-        end
-        
-        obj.world.GenerateMeasurements();
-        obj.history(1) = obj.world.state;
-        
+            for i = 1:numel(obj.world.robots)
+                
+                obj.world.robots(i).GenerateMeasurements(obj.world.state);
+                
+            end
+            
+            obj.world.GenerateMeasurements();
+            obj.history(1) = obj.world.state;
+            
         end
         
         % Proceed N time steps
@@ -121,6 +127,9 @@ classdef Simulator2D < handle
             for i = 1:N
                 obj.world.Step();
                 state = obj.world.GetState();
+                
+                state = ChainedGraph.Compress(state);
+                
                 localHist(localInd) = state;
                 localInd = localInd + 1;
                 if obj.vis_on

@@ -16,8 +16,9 @@ classdef ChainedGraph < handle
         time_scope = [];
         time_scale = 1;
         time_overlap = 1;  % After receiving new chain, contracts to new_base - time_overlap*parent_time_scale 
+        max_time_length = 9; % How many times to keep if no chains being received
         chain_holdoff = 0; % Sends chains from base to (latest_time - chain_holdoff)
-        representative_holdoff = 0; % Sends representatives up to (latest_time - representative_holdoff)
+        representative_holdoff = 0; % Sends representatives up to (latest_time - representative_holdoff)        
         
         base_id; % The actual ID, not mapped to index
         base_time; % The actual time, not mapped to index
@@ -242,7 +243,7 @@ classdef ChainedGraph < handle
                 
             end
             
-            obj.Compress();
+            obj.subgraph = obj.Compress(obj.subgraph);
             
         end
         
@@ -344,18 +345,7 @@ classdef ChainedGraph < handle
             obj.subgraph = obj.subgraph.Shift(-base_pose(1:2));
             obj.subgraph = obj.subgraph.Rotate(-base_pose(3));
             
-        end
-        
-        function Compress(obj)
-            
-            for i = 1:numel(obj.subgraph)
-                
-                z = [obj.subgraph(i).measurements{:}];                
-                obj.subgraph(i).measurements = MeasurementRelativePose.Compact(z);
-                
-            end
-            
-        end 
+        end                
         
     end
     
@@ -403,6 +393,18 @@ classdef ChainedGraph < handle
             z.covariance = b*jointcov*b';
             
         end
+       
+        % Compacts a graph and its relations
+        function [graph] = Compress(graph)
+            
+            for i = 1:numel(graph)
+                
+                z = [graph(i).measurements{:}];                
+                graph(i).measurements = MeasurementRelativePose.Compact(z);
+                
+            end
+            
+        end 
         
     end
     

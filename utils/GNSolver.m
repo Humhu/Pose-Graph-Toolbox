@@ -5,12 +5,12 @@ classdef GNSolver < handle
     properties
         
         tolerance;
-        max_iterations;               
+        max_iterations;
         
     end
     
     properties(Access = private)
-       
+        
         idMap;
         tMap;
         
@@ -38,7 +38,7 @@ classdef GNSolver < handle
             
             new = GNSolver(obj.tolerance, obj.max_iterations);
             
-        end        
+        end
         
         % Anchor is [anchor_id, anchor_time]
         function [solution, cov] = Solve(obj, sequence, anchor)
@@ -47,11 +47,11 @@ classdef GNSolver < handle
             [obj.idMap, obj.tMap] = sequence.BuildMaps();
             
             if nargin == 2
-               anchor = [sequence(1).ids(1), sequence(1).time]; 
+                anchor = [sequence(1).ids(1), sequence(1).time];
             end
             
             rem = Inf;
-            solution = sequence;                        
+            solution = sequence;
             % Measurements don't change per iteration
             measurements = FlattenCell({solution.measurements});
             
@@ -66,7 +66,7 @@ classdef GNSolver < handle
         
     end
     
-    methods(Access = private)        
+    methods(Access = private)
         
         function [solution, delta, covs] = Iterate(obj, sequence, measurements, anchor)
             
@@ -75,12 +75,11 @@ classdef GNSolver < handle
             
             % System Jacobian matrix
             H = zeros(3*N*T, 3*N*T);
-            b = zeros(3*N*T, 1);           
+            b = zeros(3*N*T, 1);
             
-            %used = {};
             for i = 1:numel(measurements)
                 
-                m = measurements{i};                
+                m = measurements{i};
                 
                 % Map into sequence indices
                 obs_t = obj.tMap.Forward(m.observer_time);
@@ -98,7 +97,7 @@ classdef GNSolver < handle
                 
                 % Precompute some terms for later
                 ca1 = cos(obs_p(3));
-                sa1 = sin(obs_p(3));                
+                sa1 = sin(obs_p(3));
                 R = [ca1, sa1;
                     -sa1, ca1];
                 dR = [-sa1, ca1;
@@ -143,9 +142,9 @@ classdef GNSolver < handle
             
             % Clean up states with no information and solve for increment
             for i = 1:size(H,1)
-               if H(i,i) == 0
-                   H(i,i) = 1;
-               end
+                if H(i,i) == 0
+                    H(i,i) = 1;
+                end
             end
             delta = H\-b;
             
@@ -163,7 +162,7 @@ classdef GNSolver < handle
             
             % Store diagonal covariances
             covs = inv(H);
-
+            
         end
         
     end

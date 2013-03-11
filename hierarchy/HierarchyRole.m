@@ -120,27 +120,7 @@ classdef HierarchyRole < handle
                 rel = local_rel;
             end
             
-        end
-        
-        function [rel] = QueryDisplacement(obj, tstart, tend)
-            
-            if ~ismember(tstart, obj.chained_graph.time_scope)
-                error('Invalid displacement query start %d in scope %d', ...
-                    tstart, obj.chained_graph.time_scope);
-            end
-            if ~ismember(tend, obj.chained_graph.time_scope)
-                error('Invalid displacement query end %d in scope %d', ...
-                    tend, obj.chained_graph.time_scope);
-            end
-            
-            relation = MeasurementRelativePose();
-            relation.observer_id = obj.chained_graph.base_id;
-            relation.observer_time = tstart;
-            relation.target_id = obj.chained_graph.base_id;
-            relation.target_time = tend;
-            rel = obj.chained_graph.Extract(relation);
-            
-        end
+        end        
         
         % Initialize agent's local_beliefs
         function Initialize(obj, state)
@@ -201,11 +181,14 @@ classdef HierarchyRole < handle
             % We leave some overlap when contracting
             if ~isempty(obj.chained_graph.parent)
                 parent_scale = obj.chained_graph.parent.time_scale;
-                alpha = obj.chained_graph.time_overlap;
-                start_time = base_time - alpha*parent_scale;
-                obj.chained_graph.Contract(start_time);
+            else
+                parent_scale = obj.chained_graph.time_scale;
             end
-                
+            
+            alpha = obj.chained_graph.time_overlap;
+            start_time = base_time - alpha*parent_scale;
+            obj.chained_graph.Contract(start_time);
+            
             obj.TransmitChains();
             
         end
@@ -246,15 +229,34 @@ classdef HierarchyRole < handle
         % Input measurements into this agent for processing, whether from a
         % robot or follower agent
         function PushMeasurements(obj, measurements)
-            
+        
             obj.rx_buffer.Push(1, measurements);
-            
+        
         end
         
         % Process internal functions. Should be called once every time
         % step.
         function Step(obj)
-            
+        
+            % Begins a 'fake' chain update for root
+            if obj.chained_graph.depth == 0
+
+                relation = obj.chained_graph.CreateRelation('base', 'base');
+                %relation.target_time = obj.chained_graph.time_scope(end);
+                beta = obj.chained_graph.chain_holdoff;
+                if beta >= numel(obj.chained_graph.time_scope)
+                    t_ind = 1;
+                else
+                    t_ind = numel(obj.chained_graph.time_scope) - beta;
+                end
+                relation.target_time = obj.chained_graph.time_scope(t_ind);
+                z = obj.chained_graph.Extract(relation);
+                gchain = obj.chained_graph.chain(1);
+                gchain = gchain.Compose(z);
+                obj.ChainUpdate(gchain);
+                
+            end
+
             % If there are no new measurements, there's nothing to do!
             if obj.rx_buffer.IsEmpty()
                 obj.time = obj.time + 1;
@@ -285,7 +287,7 @@ classdef HierarchyRole < handle
             
             % Extend to cover new times, then incorporate and optimize
             obj.chained_graph.Extend(latest_t);
-            obj.chained_graph.Incorporate(measurements);
+            obj.chained_graph.Incorporate(measurements);            
             
             %fprintf('Optimizing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
             %    obj.chained_graph.depth, obj.time)
@@ -336,15 +338,14 @@ classdef HierarchyRole < handle
         % Extract and send new links to followers
         function TransmitChains(obj)
             
-            relation = obj.chained_graph.CreateRelation('base', [0,0]);
-            %relation.target_time = obj.chained_graph.time_scope(end);
+            relation = obj.chained_graph.CreateRelation('base', 'base');
+            
             beta = obj.chained_graph.chain_holdoff;
-            if beta >= numel(obj.chained_graph.time_scope)
-                t_ind = 1;
-            else
-                t_ind = numel(obj.chained_graph.time_scope) - beta;
-            end
-            relation.target_time = obj.chained_graph.time_scope(t_ind);
+            ages = obj.time - obj.chained_graph.time_scope;
+            t_ind = find(ages > beta, 1, 'last');
+            if ~isempty(t_ind)
+                relation.target_time = obj.chained_graph.time_scope(t_ind);
+            end            
             
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
