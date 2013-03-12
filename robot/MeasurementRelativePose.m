@@ -134,28 +134,39 @@ classdef MeasurementRelativePose < Measurement
             % intermmediate overparameterized format. Here we use [cos;
             % sin] unit vectors instead.
             means = [many.double()];
+            pos_means = means(1:2,:);
             angles = means(3,:);
-            overparam = [cos(angles); sin(angles)];
-            means(3:4,:) = overparam;
+            angle_means = [cos(angles); sin(angles)];            
             
-            weighted_mean = zeros(4,1);
-            sum_info = zeros(4);
+            weighted_pos_mean = zeros(2,1);
+            sum_pos_info = zeros(2);
+            weighted_angle_mean = zeros(2,1);
+            sum_angle_info = zeros(2);
+            
             for i = 1:numel(many)
-                % Expand covariance matrix by duplicating angle terms
                 cov = many(i).covariance;
-                cov(1:2,4) = cov(1:2,3);
-                cov(4,1:2) = cov(3,1:2);
-                cov(4,4) = cov(3,3);
-                info = inv(cov);
-                sum_info = sum_info + info;
-                weighted_mean = weighted_mean + cov\means(:,i);
+                pos_cov = cov(1:2, 1:2);
+                angle_cov = cov(3,3)*eye(2);                
+                pos_info = inv(pos_cov);
+                angle_info = inv(angle_cov);
+                
+                sum_pos_info = sum_pos_info + pos_info;
+                sum_angle_info = sum_angle_info + angle_info;
+                
+                weighted_pos_mean = weighted_pos_mean + pos_info*pos_means(:,i);
+                weighted_angle_mean = weighted_angle_mean + angle_info*angle_means(:,i);
             end
-            mean = sum_info\weighted_mean;
-            cov = inv(sum_info);
+            pos_mean = sum_pos_info\weighted_pos_mean;
+            angle_mean = sum_angle_info\weighted_angle_mean;
+            
+            pos_cov = inv(sum_pos_info);
+            angle_cov = inv(sum_angle_info);                        
+            cov = [pos_cov, [0;0];
+                   0, 0, angle_cov(1)];            
             m = many(1);
-            m.displacement = mean(1:2);
-            m.rotation = wrapToPi(atan2(mean(4), mean(3)));
-            m.covariance = cov(1:3,1:3);
+            m.displacement = pos_mean;
+            m.rotation = wrapToPi(atan2(angle_mean(2), angle_mean(1)));
+            m.covariance = cov;
         end
         
         % Groups measurements into a cells of arrays for unique relations
