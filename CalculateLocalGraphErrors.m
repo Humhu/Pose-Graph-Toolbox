@@ -20,7 +20,7 @@ end
 
 if vis_on
     % %Visualize shifted graphs
-    world_dims = [2,2];
+    world_dims = [30,20];
     truth_plotter = SequencePlotter(world_dims);
     truth_plotter.z_scale = 0.1;
     truth_plotter.colors = repmat([0,1,0],4,1);

@@ -49,7 +49,7 @@ classdef GaussianMotionModel < handle & MotionModel
             
             % TODO: Input wrapping?
             input_mag = norm(inputs);
-            noise = input_mag*mvnrnd(obj.mean, obj.covariance)';
+            noise = mvnrnd(obj.mean, sqrt(input_mag)*obj.covariance)';
             a = currentPose(3);
             R = [cos(a), -sin(a);
                 sin(a), cos(a)];

@@ -55,9 +55,16 @@ classdef GNSolver < handle
             % Measurements don't change per iteration
             measurements = FlattenCell({solution.measurements});
             
+%             plotter = SequencePlotter([30, 15]);
+%             plotter.SetColors(3);            
+            
             while(norm(rem) > obj.tolerance)
+                %norm(rem)                
                 [solution, rem, cov] = obj.Iterate(solution, measurements, anchor);
                 obj.iterations = obj.iterations + 1;
+                %plotter.Clear();
+                %plotter.PlotSequence(solution);
+                %pause
                 %fprintf(['Iteration: ', num2str(obj.iterations), ...
                 %    '\tDelta max: ', num2str(norm(rem)), '\n']);
             end
@@ -147,6 +154,7 @@ classdef GNSolver < handle
                 end
             end
             delta = H\-b;
+            %delta = (H + 0.1*diag(diag(H)))\-b;
             
             % Apply state increment to state
             solution = sequence;

@@ -55,7 +55,7 @@ classdef RelativePoseSensor < handle & Sensor
                     continue
                 end
                 
-                cov = range*obj.covariance;
+                cov = sqrt(range)*obj.covariance;
                 m = MeasurementRelativePose(p, target_pose, cov);
                 m.observer_id = obj.ownerID;
                 m.target_id = target_id;

@@ -5,8 +5,10 @@ classdef LinearMap < handle
         
         input_set;
         input_offset;
+        input_valid;
         output_set;
         output_offset;
+        output_valid;
         
     end
     
@@ -24,22 +26,39 @@ classdef LinearMap < handle
             out_range = max(out_shifted);
             
             obj.input_set = -1*ones(1, in_range);
-            obj.output_set = -1*ones(1, out_range);
-            
             obj.input_set(out_shifted) = in;
+            obj.output_set = -1*ones(1, out_range);                        
             obj.output_set(in_shifted) = out;
+            
+            obj.input_valid = false(1, in_range);
+            obj.input_valid(out_shifted) = true;
+            obj.output_valid = false(1, out_range);
+            obj.output_valid(in_shifted) = true;
             
         end
         
         function [out] = Forward(obj, in)
             
-            out = obj.output_set(in - obj.input_offset);
+            shifted = in - obj.input_offset;
+            if any(shifted > numel(obj.output_set)) || ...
+               any(shifted <= 0) || any(~obj.output_valid(shifted))
+                out = [];
+                return;
+            end
+
+            out = obj.output_set(shifted);
             
         end
         
         function [in] = Backward(obj, out)
             
-            in = obj.input_set(out - obj.output_offset);
+            shifted = out - obj.output_offset;
+            if any(shifted > numel(obj.input_set)) || ...
+               any(shifted <= 0) || any(~obj.input_valid(shifted))
+                in = [];
+                return;
+            end
+            in = obj.input_set(shifted);
             
         end
         
