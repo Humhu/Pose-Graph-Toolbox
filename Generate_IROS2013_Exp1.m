@@ -9,7 +9,7 @@ trial_length = 40; % Number of steps to simulate per trial
 %test_time_scales = [1, 2, 3];
 test_time_scales = 3;
 %test_time_overlaps = [0, 1, 2];
-test_time_overlaps = 1;
+test_time_overlaps = 0;
 
 [time_scale_v, time_overlap_v] = ndgrid(test_time_scales, test_time_overlaps);
 num_experiments = numel(time_scale_v);

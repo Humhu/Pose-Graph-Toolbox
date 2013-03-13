@@ -371,7 +371,7 @@ classdef HierarchyRole < handle
             
             beta = obj.chained_graph.chain_holdoff;
             ages = obj.time - obj.chained_graph.time_scope;
-            t_ind = find(ages > beta, 1, 'last');
+            t_ind = find(ages >= beta, 1, 'last');
             if ~isempty(t_ind)
                 relation.target_time = obj.chained_graph.time_scope(t_ind);
             end            
