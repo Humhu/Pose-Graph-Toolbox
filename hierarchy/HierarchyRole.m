@@ -15,13 +15,10 @@ classdef HierarchyRole < handle
         % Each Measurement at index i corresponds to the relative pose of
         % the ancestor at level (i + 1) wrt ancestor at level (i).
         
-        chained_graph;
-        last_sent;
+        chained_graph; % Estimator data structure
         
         comms;      % Post office handle
         commID;     % Post office ID
-        tx_buffer;  % BinBuffer storing higher level local_measurements to send
-        rx_buffer;  % BinBuffer that stores local_measurements from followers
         
     end
     
@@ -33,10 +30,7 @@ classdef HierarchyRole < handle
             obj.chained_graph = ChainedGraph(level, time_scale, time_overlap, ...
                 chold, rhold);
             obj.higher_beliefs = MeasurementRelativePose.empty(1, 0);
-            obj.tx_buffer = BinBuffer(1, 50);
-            obj.rx_buffer = BinBuffer(1, 50);
             obj.time = 0;
-            obj.last_sent = 0;
             
         end
         
@@ -66,9 +60,6 @@ classdef HierarchyRole < handle
             new.followers = obj.followers;
             new.higher_beliefs = obj.higher_beliefs;
             new.chained_graph = obj.chained_graph.Copy();
-            new.last_sent = obj.last_sent;
-            new.tx_buffer = obj.tx_buffer.Copy();
-            new.rx_buffer = obj.rx_buffer.Copy();
             
         end
         
@@ -122,7 +113,7 @@ classdef HierarchyRole < handle
                 rel = local_rel;
             end
             
-        end        
+        end
         
         % Initialize agent's local_beliefs
         function Initialize(obj, state, chain)
@@ -136,7 +127,7 @@ classdef HierarchyRole < handle
                 global_belief.target_id = obj.ownerID;
                 global_belief.target_time = 0;
                 global_belief.covariance = 1E-6*eye(3);
-                chain = global_belief;                
+                chain = global_belief;
             end
             
             obj.chained_graph.chain = chain;
@@ -149,7 +140,7 @@ classdef HierarchyRole < handle
             else
                 ids = [obj.followers.ownerID];
             end
-                
+            
             substate = state;
             substate.poses = substate.poses(:,ismember(substate.ids, ids));
             substate.ids = ids;
@@ -159,18 +150,18 @@ classdef HierarchyRole < handle
             obj.chained_graph.Initialize(substate);
             obj.chained_graph.SetBase(substate.time, substate.ids(1));
             
-            obj.time = 0;                        
+            obj.time = 0;
             
-            % Recursive initialization and chain construction            
+            % Recursive initialization and chain construction
             relation = obj.chained_graph.CreateRelation('base', 'base');
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
-                relation.target_id = f.ownerID;                
-                    
+                relation.target_id = f.ownerID;
+                
                 z = obj.chained_graph.Extract(relation);
                 new_chain = [obj.chained_graph.chain, z];
                 f.Initialize(state, new_chain);
-            end                                   
+            end
             
         end
         
@@ -241,29 +232,29 @@ classdef HierarchyRole < handle
         % Input local_measurements into this agent for processing, whether from a
         % robot or follower agent
         function PushMeasurements(obj, local_measurements)
-        
+            
             obj.rx_buffer.Push(1, local_measurements);
-        
+            
         end
         
         % Process internal functions. Should be called once every time
         % step.
-        function Step(obj)        
-
+        function Step(obj)
+            
             % Split messages
             all_messages = obj.comms.Withdraw(obj.commID);
             local_measurements = {};
-            oos_measurements = {};            
-            if ~isempty(all_messages)                
+            oos_measurements = {};
+            if ~isempty(all_messages)
                 measurement_messages = Message.GetType(all_messages, 'MeasurementUpdate');
                 measurement_messages = Message.SortSendTime(measurement_messages);
                 chain_updates = Message.GetType(all_messages, 'ChainUpdate');
-                chain_updates = Message.SortSendTime(chain_updates);                
-            else                
+                chain_updates = Message.SortSendTime(chain_updates);
+            else
                 measurement_messages = {};
                 chain_updates = {};
             end
-                
+            
             times = [];
             team_ids = obj.GetTeam();
             for i = 1:numel(measurement_messages)
@@ -271,38 +262,23 @@ classdef HierarchyRole < handle
                 z = m.contents;
                 if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
                     oos_measurements = [oos_measurements, {z}];
-                    %obj.TranslateMeasurement(z); % Sends it to a better place
                 else
                     times = [times, z.observer_time, z.target_time];
                     local_measurements = [local_measurements, {z}];
                 end
             end
             latest_t = max(times);
-                       
+            
             if ~isempty(local_measurements)
                 % Extend to cover new times, then incorporate and optimize
                 obj.chained_graph.Extend(latest_t);
                 obj.chained_graph.Incorporate(local_measurements);
-                
-                %fprintf('Optimizing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
-                %    obj.chained_graph.depth, obj.time)
-                %fprintf(['\t in robot scope: ', num2str(obj.chained_graph.robot_scope), ...
-                %    ' time scope: ', num2str(obj.chained_graph.time_scope), '\n']);
                 obj.chained_graph.Optimize();
             end
             
-            for i = 1:numel(oos_measurements)
-               
-                obj.TranslateMeasurement(oos_measurements{i});
-                
-            end
-            
-            % Process chain updates by only using newest
             % Begins a 'fake' chain update for root
-            if obj.chained_graph.depth == 0
-
+            if obj.chained_graph.depth == 0                
                 relation = obj.chained_graph.CreateRelation('base', 'base');
-                %relation.target_time = obj.chained_graph.time_scope(end);
                 beta = obj.chained_graph.chain_holdoff;
                 if beta >= numel(obj.chained_graph.time_scope)
                     t_ind = 1;
@@ -312,7 +288,7 @@ classdef HierarchyRole < handle
                 relation.target_time = obj.chained_graph.time_scope(t_ind);
                 z = obj.chained_graph.Extract(relation);
                 gchain = obj.chained_graph.chain(1);
-                gchain = gchain.Compose(z);                
+                gchain = gchain.Compose(z);
                 obj.ChainUpdate(gchain);                
             elseif ~isempty(chain_updates)
                 z = chain_updates{end}.contents(end);
@@ -320,11 +296,19 @@ classdef HierarchyRole < handle
                     ' s_t: ', num2str(z.observer_time), ' e_id: ', num2str(z.target_id), ...
                     ' e_t: ', num2str(z.target_time), '\n']);
                 obj.ChainUpdate(chain_updates{end}.contents);
-            end                        
+            else
+                obj.TransmitChains();
+            end
+            
+            for i = 1:numel(oos_measurements)
+                
+                
+                %obj.TranslateMeasurement(oos_measurements{i});
+                
+            end
             
             % Share information
-            obj.TransmitRepresentatives();                        
-            obj.TransmitChains();            
+            obj.TransmitRepresentatives();
             
             % For testing only!!!
             obj.comms.Transmit(obj.commID);
@@ -374,12 +358,12 @@ classdef HierarchyRole < handle
             t_ind = find(ages >= beta, 1, 'last');
             if ~isempty(t_ind)
                 relation.target_time = obj.chained_graph.time_scope(t_ind);
-            end            
+            end
             
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
-                relation.target_id = f.ownerID;                
-                    
+                relation.target_id = f.ownerID;
+                
                 z = obj.chained_graph.Extract(relation);
                 new_chain = [obj.chained_graph.chain, z];
                 m = ChainUpdateMessage(f.commID, obj.commID, new_chain);
@@ -390,7 +374,7 @@ classdef HierarchyRole < handle
         end
         
         function TransmitRepresentatives(obj)
-           
+            
             if isempty(obj.chained_graph.parent)
                 return
             end
@@ -403,18 +387,18 @@ classdef HierarchyRole < handle
                 te_ind = 1;
             else
                 te_ind = numel(obj.chained_graph.time_scope) - gamma;
-            end            
-            end_time = obj.chained_graph.subgraph(te_ind).time;                        
+            end
+            end_time = obj.chained_graph.subgraph(te_ind).time;
             
             representative_times = start_time:parent_scale:end_time;
             N = numel(representative_times) - 1;
             messages = cell(1,N);
-            relation = obj.chained_graph.CreateRelation('base', 'base');            
+            relation = obj.chained_graph.CreateRelation('base', 'base');
             
             for i = 1:numel(representative_times) - 1
-               
+                
                 relation.observer_time = representative_times(i);
-                relation.target_time = representative_times(i + 1);                
+                relation.target_time = representative_times(i + 1);
                 
                 m = MeasurementUpdateMessage(obj.leader.commID, obj.commID, ...
                     obj.chained_graph.Extract(relation));
@@ -425,7 +409,7 @@ classdef HierarchyRole < handle
             
             obj.comms.Deposit(obj.commID, messages);
             
-        end        
+        end
         
     end
     

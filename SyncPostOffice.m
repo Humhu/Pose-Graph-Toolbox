@@ -30,8 +30,8 @@ classdef SyncPostOffice < handle
         function [id] = Register(obj)
             
             id = obj.idCounter;
-            obj.inboxes(id) = BinBuffer(1, obj.box_size);
-            obj.outboxes(id) = BinBuffer(1, obj.box_size);
+            obj.inboxes(id) = BinBuffer(obj.box_size);
+            obj.outboxes(id) = BinBuffer(obj.box_size);
             obj.idCounter = obj.idCounter + 1;
             
         end
@@ -43,7 +43,7 @@ classdef SyncPostOffice < handle
                     numel(obj.outboxes), id);
             end
             
-            obj.outboxes(id).Push(1, messages);
+            obj.outboxes(id).Push(messages);
             
         end
         
@@ -55,7 +55,7 @@ classdef SyncPostOffice < handle
                 if ~obj.CheckID(to)
                     continue
                 end
-                obj.inboxes(to).Push(1, m);
+                obj.inboxes(to).Push(m);
             end
             
         end
@@ -86,7 +86,7 @@ classdef SyncPostOffice < handle
                 if ~obj.CheckID(to)
                     continue
                 end
-                obj.inboxes(to).Push(1, m);
+                obj.inboxes(to).Push(m);
                 
             end
             
