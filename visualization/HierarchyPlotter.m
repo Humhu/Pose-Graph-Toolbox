@@ -73,10 +73,6 @@ classdef HierarchyPlotter < Plotter2D
                 r(1) = [];
                 curr = curr.ApplyLinks(curr.depth+1);
                 graph = curr.subgraph;
-%                 graph = curr.subgraph;
-%                 graph_root_pos = curr.estimates(1);                
-%                 graph = graph.Rotate(graph_root_pos.rotation);
-%                 graph = graph.Shift(graph_root_pos.displacement);
                 obj.PlotGraph(graph);
                 r = [r, curr.children];
             end
