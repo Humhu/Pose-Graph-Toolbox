@@ -225,8 +225,11 @@ classdef ChainedGraph < handle
                 t_ind = tMap.Forward(z.observer_time);
                 
                 if isempty(t_ind)
-                    error(['Cannot incorporate out-of-scope measurement.', ...
-                        ', z_t: %d, scope: %4d'], z.observer_time, obj.time_scope);
+                    continue;
+                    % Not an error anymore..just ignore it.
+                    %error(['Cannot incorporate out-of-scope measurement.', ...
+                    %    ', z_t: ', num2str(z.observer_time), ...
+                    %    ' scope: ', num2str(obj.time_scope),'\n']);
                 end
                     
                 % Append non-odometric, replace odometric

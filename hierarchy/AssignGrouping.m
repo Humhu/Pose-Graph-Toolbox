@@ -7,7 +7,6 @@
 %   leader.
 %   time_scales - K x 1 array, where time_scales(k) is the time scale at
 %   depth k -1
-
 function [robots] = AssignGrouping(robots, grouping, time_scales, time_overlaps, ...
     chain_holdoffs, rep_holdoffs)
 

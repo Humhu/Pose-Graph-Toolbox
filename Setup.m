@@ -4,3 +4,4 @@ addpath('robot');
 addpath('hierarchy');
 addpath('core');
 addpath('utils');
+addpath('comm');

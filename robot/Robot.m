@@ -10,6 +10,7 @@ classdef Robot < handle
         motionController;       % Robot's controller
         motionModel;            % Robot's motion model
         sensors;                % Robot's sensor handles
+        comms;                  % Communication module
         
         roles;                  % Software agents (roles(end) is leaf)
         
@@ -100,7 +101,16 @@ classdef Robot < handle
         function [] = RegisterRole(obj, r)
             
             obj.roles = [obj.roles, r];
+            obj.roles(end).commID = obj.comms.Register();
+            obj.roles(end).comms = obj.comms; % Hack. Abstract this.
             r.ownerID = obj.ID;
+            
+        end
+        
+        function [] = RegisterCommunications(obj, c)
+           
+            obj.comms = c;
+            % Robots don't register with the postoffice right now
             
         end
         
@@ -129,10 +139,14 @@ classdef Robot < handle
             
             % TODO Has to come after odometry! Fix this!!
             obj.GenerateMeasurements(state);
-            
-            if ~isempty(obj.roles)
-                obj.roles(end).PushMeasurements(obj.measurements);
-            end
+                
+            leaf_commID = obj.roles(end).commID;
+            for i = 1:numel(obj.measurements)
+                m = MeasurementUpdateMessage(leaf_commID, leaf_commID, ...
+                    obj.measurements{i});
+                m.sendTime = state.time;
+                obj.comms.DirectDeposit({m});
+            end           
             
             for i = 1:numel(obj.roles)
                obj.roles(i).Step(); 

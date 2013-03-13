@@ -3,7 +3,7 @@
 % Use same seeds for each trial per experiment
 seeds = 1:1;
 num_trials = numel(seeds);
-trial_length = 100; % Number of steps to simulate per trial
+trial_length = 40; % Number of steps to simulate per trial
 
 % Test parameters
 %test_time_scales = [1, 2, 3];
@@ -22,7 +22,8 @@ odo_ratios = zeros(num_experiments, 4, trial_length);
 
 % Other fixed parameters
 world_dims = [80;20];
-chain_holdoff = [1; 1; 1];
+%chain_holdoff = [1; 1; 1];
+chain_holdoff = [0; 0; 0];
 representative_holdoff = [0; 0; 0];
 
 % Fractal positioning parameters
@@ -72,8 +73,7 @@ for k = 1:num_experiments
             done = (k-1)*num_trials + s-1;
             to_do = num_trials*num_experiments;
             runtime_est = now/done*to_do;
-            fprintf('\tStarting experiment %d Trial %d/%d. ETA: %f\n', k, ...
-                s, num_trials, runtime_est - now);
+            fprintf('\tTrial %d/%d. ETA: %f\n', s, num_trials, runtime_est - now);
         end
         
         % Seed random number generator
@@ -91,12 +91,13 @@ for k = 1:num_experiments
         positions(3,:) = wrapToPi(positions(3,:));
         robots = InitRobots(r_template, {positions});
         grouping = GenerateGrouping(d, b);
+
+        sim.AddRobots(robots);
         
         AssignGrouping(robots, grouping, time_scales, time_overlaps, ...
             chain_holdoff, representative_holdoff); % Set up hierarchy and assign roles
         
         % Add robots to simulator
-        sim.AddRobots(robots);
         sim.Initialize();
         
         gn = GNSolver(1E-6, 100);
@@ -124,14 +125,8 @@ for k = 1:num_experiments
         cg1_0 = sim.world.robots(1).roles(2).chained_graph;
         cg2_0 = sim.world.robots(1).roles(3).chained_graph;
         
-        for i = 1:trial_length
+        for i = 1:trial_length                                                
             
-            fprintf(['Step: ', num2str(i), '\n']);
-            fprintf(['\tCG0 T: ', num2str(cg0_0.time_scope), '\tbT: ', num2str(cg0_0.base_time), '\n']);
-            fprintf(['\tCG1 T: ', num2str(cg1_0.time_scope), '\tbT: ', num2str(cg1_0.base_time), '\n']);
-            fprintf(['\tCG2 T: ', num2str(cg2_0.time_scope), '\tbT: ', num2str(cg2_0.base_time), '\n']);
-            
-            sim.Step();
             truth = sim.history(1:sim.history_ind-1);
             [cg_errs, baseline_errs, odo_errs] = CalculateLeafGraphErrors(leafs, truth);                        
             trial_estimate_errors(:, i) = mean(cg_errs, 2);
@@ -143,6 +138,20 @@ for k = 1:num_experiments
             e1 = trial_estimate_errors(2,i);
             e2 = trial_estimate_errors(1,i);
             fprintf('\teg: %f e0: %f e1: %f e2: %f\n', eg, e0, e1, e2);
+
+            fprintf(['Step: ', num2str(i), '\n']);
+            
+            sim.Step();
+            
+            n0 = numel(cg0_0.subgraph(end).measurements);
+            n1 = numel(cg1_0.subgraph(end).measurements);
+            n2 = numel(cg2_0.subgraph(end).measurements);
+            fprintf(['\tCG0 T: ', num2str(cg0_0.time_scope), '\tbT: ', ...
+                num2str(cg0_0.base_time), '\t|m|: ', num2str(n0), '\n']);
+            fprintf(['\tCG1 T: ', num2str(cg1_0.time_scope), '\tbT: ', ...
+                num2str(cg1_0.base_time), '\t|m|: ', num2str(n1), '\n']);
+            fprintf(['\tCG2 T: ', num2str(cg2_0.time_scope), '\tbT: ', ...
+                num2str(cg2_0.base_time), '\t|m|: ', num2str(n2), '\n']);                                    
             
         end
         trial_baseline_ratios = trial_estimate_errors./trial_baseline_errors;
@@ -193,8 +202,8 @@ title('Odometry Performance Ratio vs. Steps');
 
 figure;
 hold on;
-plot(0:trial_length-1, squeeze(estimate_errors(1,1,:)), 'r');
-plot(0:trial_length-1, squeeze(baseline_errors(1,1,:)), 'b');
+plot(0:trial_length-1, squeeze(estimate_errors(1,1,:)), 'rx-');
+plot(0:trial_length-1, squeeze(baseline_errors(1,1,:)), 'b.-');
 xlabel('Step number');
 ylabel('Average error norm (m)');
 legend('Estimate', 'Global Optimum', 'location', 'best')
@@ -202,8 +211,8 @@ title('Depth 2 Estimate vs. Baseline Localized Error');
 
 figure;
 hold on;
-plot(0:trial_length-1, squeeze(estimate_errors(1,2,:)), 'r');
-plot(0:trial_length-1, squeeze(baseline_errors(1,2,:)), 'b');
+plot(0:trial_length-1, squeeze(estimate_errors(1,2,:)), 'rx-');
+plot(0:trial_length-1, squeeze(baseline_errors(1,2,:)), 'b.-');
 xlabel('Step number');
 ylabel('Average error norm (m)');
 legend('Estimate', 'Global Optimum', 'location', 'best')
@@ -211,8 +220,8 @@ title('Depth 1 Estimate vs. Baseline Localized Error');
 
 figure;
 hold on;
-plot(0:trial_length-1, squeeze(estimate_errors(1,3,:)), 'r');
-plot(0:trial_length-1, squeeze(baseline_errors(1,3,:)), 'b');
+plot(0:trial_length-1, squeeze(estimate_errors(1,3,:)), 'rx-');
+plot(0:trial_length-1, squeeze(baseline_errors(1,3,:)), 'b.-');
 xlabel('Step number');
 ylabel('Average error norm (m)');
 legend('Estimate', 'Global Optimum', 'location', 'best')
@@ -220,8 +229,8 @@ title('Depth 0 Estimate vs. Baseline Localized Error');
 
 figure;
 hold on;
-plot(0:trial_length-1, squeeze(estimate_errors(1,4,:)), 'r');
-plot(0:trial_length-1, squeeze(baseline_errors(1,4,:)), 'b');
+plot(0:trial_length-1, squeeze(estimate_errors(1,4,:)), 'rx-');
+plot(0:trial_length-1, squeeze(baseline_errors(1,4,:)), 'b.-');
 xlabel('Step number');
 ylabel('Average error norm (m)');
 legend('Estimate', 'Global Optimum', 'location', 'best')
@@ -233,12 +242,14 @@ plot(0:trial_length-1, squeeze(estimate_errors(1,1,:)), 'rx-');
 plot(0:trial_length-1, squeeze(baseline_errors(1,1,:)), 'r.-');
 plot(0:trial_length-1, squeeze(estimate_errors(1,2,:)), 'gx-');
 plot(0:trial_length-1, squeeze(baseline_errors(1,2,:)), 'g.-');
-plot(0:trial_length-1, squeeze(estimate_errors(1,4,:)), 'bx-');
-plot(0:trial_length-1, squeeze(baseline_errors(1,4,:)), 'b.-');
+plot(0:trial_length-1, squeeze(estimate_errors(1,3,:)), 'bx-');
+plot(0:trial_length-1, squeeze(baseline_errors(1,3,:)), 'b.-');
+plot(0:trial_length-1, squeeze(estimate_errors(1,4,:)), 'mx-');
+plot(0:trial_length-1, squeeze(baseline_errors(1,4,:)), 'm.-');
 xlabel('Step number');
 ylabel('Average error norm (m)');
 legend('k = 2 CG', 'k = 2 MLE', 'k = 1 CG', 'k = 1 MLE', ...
-    'Global CG', 'Global MLE', 'location', 'best')
+    'k = 0 CG', 'k = 0 MLE', 'Global CG', 'Global MLE', 'location', 'best')
 title('Chained Graph vs. Baseline Localized Error');
 
 %% Plot subsampled trajectories

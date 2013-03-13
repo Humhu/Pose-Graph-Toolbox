@@ -13,6 +13,8 @@ classdef Simulator2D < handle
         recorder;    % Video file ID
         recording = false;
         
+        comms;  % Synchronous communication manager
+        
     end
     
     methods
@@ -31,6 +33,7 @@ classdef Simulator2D < handle
             end
             
             obj.world = World2D(world_size); % Initialize world
+            obj.comms = SyncPostOffice(100);
             
             obj.vis_on = vis_mode;
             if vis_mode
@@ -50,6 +53,10 @@ classdef Simulator2D < handle
         
         % Add robots to the world
         function AddRobots(obj, robots)
+            
+            for i = 1:numel(robots)
+                robots(i).RegisterCommunications(obj.comms);
+            end
             
             obj.world.AddRobots(robots);
             
@@ -136,6 +143,8 @@ classdef Simulator2D < handle
                     obj.plotter.PlotSequence(state);
                 end
             end
+            
+            obj.comms.ProcessTransactions();
             
             obj.history(obj.history_ind:obj.history_ind + N - 1) = localHist;
             obj.history_ind = obj.history_ind + N;

@@ -18,8 +18,10 @@ classdef HierarchyRole < handle
         chained_graph;
         last_sent;
         
-        tx_buffer;  % BinBuffer storing higher level measurements to send
-        rx_buffer;  % BinBuffer that stores measurements from followers
+        comms;      % Post office handle
+        commID;     % Post office ID
+        tx_buffer;  % BinBuffer storing higher level local_measurements to send
+        rx_buffer;  % BinBuffer that stores local_measurements from followers
         
     end
     
@@ -123,7 +125,22 @@ classdef HierarchyRole < handle
         end        
         
         % Initialize agent's local_beliefs
-        function Initialize(obj, state)
+        function Initialize(obj, state, chain)
+            
+            % For root case
+            if nargin == 2
+                global_pose = state.poses(:,1);
+                global_belief = MeasurementRelativePose(zeros(3,1), global_pose, zeros(3));
+                global_belief.observer_id = -1;
+                global_belief.observer_time = 0;
+                global_belief.target_id = obj.ownerID;
+                global_belief.target_time = 0;
+                global_belief.covariance = 1E-6*eye(3);
+                chain = global_belief;                
+            end
+            
+            obj.chained_graph.chain = chain;
+            obj.BuildEstimates(obj.chained_graph.chain);
             
             % Doesn't work until graph initialized... fix?
             %ids = obj.GetTeam();
@@ -142,26 +159,18 @@ classdef HierarchyRole < handle
             obj.chained_graph.Initialize(substate);
             obj.chained_graph.SetBase(substate.time, substate.ids(1));
             
-            obj.time = 0;
+            obj.time = 0;                        
             
+            % Recursive initialization and chain construction            
+            relation = obj.chained_graph.CreateRelation('base', 'base');
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
-                f.Initialize(state);
-            end
-            
-            if obj.chained_graph.depth ~= 0
-                return
-            end
-            
-            global_pose = state.poses(:,1);
-            global_belief = MeasurementRelativePose(zeros(3,1), global_pose, zeros(3));
-            global_belief.observer_id = -1;
-            global_belief.observer_time = 0;
-            global_belief.target_id = obj.ownerID;
-            global_belief.target_time = 0;
-            global_belief.covariance = 1E-6*eye(3);
-            
-            obj.ChainUpdate(global_belief);
+                relation.target_id = f.ownerID;                
+                    
+                z = obj.chained_graph.Extract(relation);
+                new_chain = [obj.chained_graph.chain, z];
+                f.Initialize(state, new_chain);
+            end                                   
             
         end
         
@@ -219,25 +228,76 @@ classdef HierarchyRole < handle
                 
                 m = local_to_proxy.Compose(m);
                 m = m.Compose(other_to_proxy.ToInverse());
-                common.PushMeasurements(m);
+                messg = MeasurementUpdateMessage(common.commID, obj.commID, m);
+                messg.sendTime = obj.time;
+                %common.PushMeasurements(m);
+                obj.comms.Deposit(obj.commID, {messg});
                 
             end
             
             
         end
         
-        % Input measurements into this agent for processing, whether from a
+        % Input local_measurements into this agent for processing, whether from a
         % robot or follower agent
-        function PushMeasurements(obj, measurements)
+        function PushMeasurements(obj, local_measurements)
         
-            obj.rx_buffer.Push(1, measurements);
+            obj.rx_buffer.Push(1, local_measurements);
         
         end
         
         % Process internal functions. Should be called once every time
         % step.
-        function Step(obj)
-        
+        function Step(obj)        
+
+            % Split messages
+            all_messages = obj.comms.Withdraw(obj.commID);
+            local_measurements = {};
+            oos_measurements = {};            
+            if ~isempty(all_messages)                
+                measurement_messages = Message.GetType(all_messages, 'MeasurementUpdate');
+                measurement_messages = Message.SortSendTime(measurement_messages);
+                chain_updates = Message.GetType(all_messages, 'ChainUpdate');
+                chain_updates = Message.SortSendTime(chain_updates);                
+            else                
+                measurement_messages = {};
+                chain_updates = {};
+            end
+                
+            times = [];
+            team_ids = obj.GetTeam();
+            for i = 1:numel(measurement_messages)
+                m = measurement_messages{i};
+                z = m.contents;
+                if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
+                    oos_measurements = [oos_measurements, {z}];
+                    %obj.TranslateMeasurement(z); % Sends it to a better place
+                else
+                    times = [times, z.observer_time, z.target_time];
+                    local_measurements = [local_measurements, {z}];
+                end
+            end
+            latest_t = max(times);
+                       
+            if ~isempty(local_measurements)
+                % Extend to cover new times, then incorporate and optimize
+                obj.chained_graph.Extend(latest_t);
+                obj.chained_graph.Incorporate(local_measurements);
+                
+                %fprintf('Optimizing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
+                %    obj.chained_graph.depth, obj.time)
+                %fprintf(['\t in robot scope: ', num2str(obj.chained_graph.robot_scope), ...
+                %    ' time scope: ', num2str(obj.chained_graph.time_scope), '\n']);
+                obj.chained_graph.Optimize();
+            end
+            
+            for i = 1:numel(oos_measurements)
+               
+                obj.TranslateMeasurement(oos_measurements{i});
+                
+            end
+            
+            % Process chain updates by only using newest
             % Begins a 'fake' chain update for root
             if obj.chained_graph.depth == 0
 
@@ -252,54 +312,23 @@ classdef HierarchyRole < handle
                 relation.target_time = obj.chained_graph.time_scope(t_ind);
                 z = obj.chained_graph.Extract(relation);
                 gchain = obj.chained_graph.chain(1);
-                gchain = gchain.Compose(z);
-                obj.ChainUpdate(gchain);
-                
-            end
-
-            % If there are no new measurements, there's nothing to do!
-            if obj.rx_buffer.IsEmpty()
-                obj.time = obj.time + 1;
-                return
-            end
+                gchain = gchain.Compose(z);                
+                obj.ChainUpdate(gchain);                
+            elseif ~isempty(chain_updates)
+                z = chain_updates{end}.contents(end);
+                fprintf(['\tChain update received. s_id: ', num2str(z.observer_id), ...
+                    ' s_t: ', num2str(z.observer_time), ' e_id: ', num2str(z.target_id), ...
+                    ' e_t: ', num2str(z.target_time), '\n']);
+                obj.ChainUpdate(chain_updates{end}.contents);
+            end                        
             
-            measurements = obj.rx_buffer.PopAll();
+            % Share information
+            obj.TransmitRepresentatives();                        
+            obj.TransmitChains();            
             
-            % Translate and transmit extra-team measurements
-            team_ids = obj.GetTeam();
-            remove = false(numel(measurements), 1);
-            for i = 1:numel(measurements)
-                z = measurements{i};
-                if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
-                    obj.TranslateMeasurement(z); % Sends it to a better place
-                    remove(i) = 1;
-                end
-            end
-            measurements(remove) = [];
+            % For testing only!!!
+            obj.comms.Transmit(obj.commID);
             
-            % Determine new times
-            times = zeros(1,2*numel(measurements));
-            for i = 1:numel(measurements)
-                z = measurements{i};
-                times(2*i-1:2*i) = [z.observer_time, z.target_time];
-            end
-            latest_t = max(times);
-            
-            % Extend to cover new times, then incorporate and optimize
-            obj.chained_graph.Extend(latest_t);
-            obj.chained_graph.Incorporate(measurements);            
-            
-            %fprintf('Optimizing at ID: %d, k: %d, t: %d\n', obj.ownerID, ...
-            %    obj.chained_graph.depth, obj.time)
-            %fprintf(['\t in robot scope: ', num2str(obj.chained_graph.robot_scope), ...
-            %    ' time scope: ', num2str(obj.chained_graph.time_scope), '\n']);
-            obj.chained_graph.Optimize();
-            
-            % Inform leader here
-            obj.TransmitRepresentatives();
-            
-            % Chain update here
-            obj.TransmitChains();
             obj.time = obj.time + 1;
             
         end
@@ -309,25 +338,25 @@ classdef HierarchyRole < handle
     methods(Access = private)
         
         % Builds this agent's root position in all higher reference frames
-        % given a chain of relative measurements. The chain should be
-        % ordered with measurements(1) corresponding to root->f1, and
-        % measurements(end) corresponding to fn->obj
-        function BuildEstimates(obj, measurements)
+        % given a chain of relative local_measurements. The chain should be
+        % ordered with local_measurements(1) corresponding to root->f1, and
+        % local_measurements(end) corresponding to fn->obj
+        function BuildEstimates(obj, local_measurements)
             
-            if numel(measurements) ~= obj.chained_graph.depth + 1
-                error(['Wrong number of measurements given to BuildEstimates: ', ...
+            if numel(local_measurements) ~= obj.chained_graph.depth + 1
+                error(['Wrong number of local_measurements given to BuildEstimates: ', ...
                     'level: %d, #meas: %d'], obj.chained_graph.depth, ...
-                    numel(measurements));
+                    numel(local_measurements));
             end
             
             % Initialize all as last link
             for i = 1:obj.chained_graph.depth + 1
-                obj.estimates(i) = measurements(end);
+                obj.estimates(i) = local_measurements(end);
             end
             
-            % Build chain by composing measurements in reverse-order
+            % Build chain by composing local_measurements in reverse-order
             for i = obj.chained_graph.depth:-1:1
-                m = measurements(i);
+                m = local_measurements(i);
                 for j = i:-1:1
                     obj.estimates(j) = m.Compose(obj.estimates(j));
                 end
@@ -349,9 +378,13 @@ classdef HierarchyRole < handle
             
             for i = 1:numel(obj.followers)
                 f = obj.followers(i);
-                relation.target_id = f.ownerID;
+                relation.target_id = f.ownerID;                
+                    
                 z = obj.chained_graph.Extract(relation);
-                f.ChainUpdate([obj.chained_graph.chain, z]);
+                new_chain = [obj.chained_graph.chain, z];
+                m = ChainUpdateMessage(f.commID, obj.commID, new_chain);
+                m.sendTime = obj.time;
+                obj.comms.Deposit(obj.commID, {m});
             end
             
         end
@@ -374,18 +407,23 @@ classdef HierarchyRole < handle
             end_time = obj.chained_graph.subgraph(te_ind).time;                        
             
             representative_times = start_time:parent_scale:end_time;
-            representatives = cell(1, numel(representative_times - 1));
-            relation = obj.chained_graph.CreateRelation('base', 'base');
+            N = numel(representative_times) - 1;
+            messages = cell(1,N);
+            relation = obj.chained_graph.CreateRelation('base', 'base');            
+            
             for i = 1:numel(representative_times) - 1
                
                 relation.observer_time = representative_times(i);
                 relation.target_time = representative_times(i + 1);                
                 
-                representatives{i} = obj.chained_graph.Extract(relation);
+                m = MeasurementUpdateMessage(obj.leader.commID, obj.commID, ...
+                    obj.chained_graph.Extract(relation));
+                m.sendTime = obj.time;
+                messages{i} = m;
                 
             end
             
-            obj.leader.PushMeasurements(representatives);
+            obj.comms.Deposit(obj.commID, messages);
             
         end        
         
