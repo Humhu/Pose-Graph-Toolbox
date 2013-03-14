@@ -1,13 +1,13 @@
 % Factorial testing over n, alpha with fixed random seeds
 
 % Use same seeds for each trial per experiment
-seeds = 1:10;
+seeds = 1:1;
 num_trials = numel(seeds);
-trial_length = 120; % Number of steps to simulate per trial
+trial_length = 60; % Number of steps to simulate per trial
 
 % Test parameters
 time_scales = 3.^(2:-1:0);
-time_overlaps = [1,1,0];
+time_overlaps = [2,1,0];
 
 % Other fixed parameters
 world_dims = [80;20];
@@ -151,6 +151,11 @@ for s = 1:num_trials
     cg1_0 = sim.world.robots(1).roles(2).chained_graph;
     cg2_0 = sim.world.robots(1).roles(3).chained_graph;
     
+    % T Scope logging
+    tscope0_0 = cell(trial_length, 1);
+    tscope1_0 = cell(trial_length, 1);
+    tscope2_0 = cell(trial_length, 1);
+    
     for i = 1:trial_length
         
         truth = sim.history(1:sim.history_ind-1);
@@ -164,10 +169,10 @@ for s = 1:num_trials
         e1 = trial_latest_cge(2,i,s);
         e2 = trial_latest_cge(1,i,s);
         
-%         set(local_lines(1), 'XData', 0:i-1, 'YData', trial_latest_cge(1,1:i,s));
-%         set(local_lines(2), 'XData', 0:i-1, 'YData', trial_latest_cge(2,1:i,s));
-%         set(local_lines(3), 'XData', 0:i-1, 'YData', trial_latest_cge(3,1:i,s));
-%         set(local_lines(4), 'XData', 0:i-1, 'YData', trial_latest_cge(4,1:i,s));
+        set(local_lines(1), 'XData', 0:i-1, 'YData', trial_latest_cge(1,1:i,s));
+        set(local_lines(2), 'XData', 0:i-1, 'YData', trial_latest_cge(2,1:i,s));
+        set(local_lines(3), 'XData', 0:i-1, 'YData', trial_latest_cge(3,1:i,s));
+        set(local_lines(4), 'XData', 0:i-1, 'YData', trial_latest_cge(4,1:i,s));
         
         fprintf('\tlocalization eg: %f e0: %f e1: %f e2: %f\n', eg, e0, e1, e2);
         
@@ -176,9 +181,9 @@ for s = 1:num_trials
         trial_rel_be(:, i, s) = baseline_errs;
         trial_rel_oe(:,i, s) = odo_errs;
         
-%         set(relative_lines(1), 'XData', 0:i-1, 'YData', trial_rel_cge(1,1:i,s));
-%         set(relative_lines(2), 'XData', 0:i-1, 'YData', trial_rel_cge(2,1:i,s));
-%         set(relative_lines(3), 'XData', 0:i-1, 'YData', trial_rel_cge(3,1:i,s));
+        set(relative_lines(1), 'XData', 0:i-1, 'YData', trial_rel_cge(1,1:i,s));
+        set(relative_lines(2), 'XData', 0:i-1, 'YData', trial_rel_cge(2,1:i,s));
+        set(relative_lines(3), 'XData', 0:i-1, 'YData', trial_rel_cge(3,1:i,s));
         
         fprintf('\tlocal e0: %f e1: %f e2: %f\n', cg_errs(3), cg_errs(2), cg_errs(1));                
 
@@ -201,6 +206,10 @@ for s = 1:num_trials
         fprintf(['Step: ', num2str(i), '\n']);
         
         sim.Step();
+        
+        tscope0_0{i} = cg0_0.time_scope;
+        tscope1_0{i} = cg1_0.time_scope;
+        tscope2_0{i} = cg2_0.time_scope;
         
         n0 = numel(cg0_0.subgraph(end).measurements);
         n1 = numel(cg1_0.subgraph(end).measurements);

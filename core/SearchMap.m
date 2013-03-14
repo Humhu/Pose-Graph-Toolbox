@@ -12,14 +12,16 @@ classdef SearchMap < handle
     
         function [obj] = SearchMap(in, out)
            
-            obj.input_set = in;
-            obj.output_set = out;
+            obj.input_set = reshape(in, 1, numel(in));
+            obj.output_set = reshape(out, 1, numel(out));
             
         end
         
         function [out] = Forward(obj, in)
             
-            [~, ~, i] = intersect(in, obj.input_set);
+            %[~, ~, i] = intersect(in, obj.input_set);
+            in = reshape(in, 1, numel(in));
+            [i, ~] = find(bsxfun(@eq, obj.input_set', in));
             out = obj.output_set(i)';
             
         end

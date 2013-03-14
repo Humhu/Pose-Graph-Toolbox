@@ -6,6 +6,7 @@ classdef SyncPostOffice < handle
         inboxes;
         outboxes;
         box_size;
+        types = {'MeasurementUpdate', 'ChainUpdate'};
         
     end
     
@@ -89,7 +90,7 @@ classdef SyncPostOffice < handle
         function ProcessTransactions(obj, time)
             
             N = numel(obj.pendingTransactions);
-            log_entry = zeros(N, 3);
+            log_entry = zeros(N, 4);
             for i = 1:N
                 
                 m = obj.pendingTransactions{i};
@@ -97,7 +98,7 @@ classdef SyncPostOffice < handle
                 if ~obj.CheckID(to)
                     continue
                 end
-                log_entry(i,:) = [time, m.senderID, to];
+                log_entry(i,:) = [time, m.senderID, to, find(strcmp(obj.types, m.content_type))];
                 obj.inboxes(to).Push(m);
                 
             end
