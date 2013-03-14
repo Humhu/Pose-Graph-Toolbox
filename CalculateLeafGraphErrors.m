@@ -10,11 +10,13 @@ baseline_errs = zeros(D + 2, N);
 odo_errs = zeros(D + 2, N);
 
 % Get comparison solutions
-gn = GNSolver(1E-6, 100);
-odo = OdometrySolver(1E-6, 100);
+%gn = GNSolver(1E-6, 100);
+%odo = OdometrySolver(1E-6, 100);
 
-baseline_graph = gn.Solve(true_graph);
-odo_graph = odo.Solve(true_graph);
+%baseline_graph = gn.Solve(true_graph);
+%odo_graph = odo.Solve(true_graph);
+baseline_graph = true_graph;
+odo_graph = true_graph;
 
 for i = 1:N
    

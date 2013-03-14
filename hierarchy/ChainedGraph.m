@@ -335,6 +335,17 @@ classdef ChainedGraph < handle
             
         end
         
+        % Returns relation of (id, time) to k-th ancestral base node
+        function [rel] = DepthExtract(obj, id, time, k)
+        
+            local_relation = obj.CreateRelation('base', [id, time]);
+            rel = obj.Extract(local_relation);
+            for i = 1:k
+               rel = obj.chain(end-i+1).Compose(rel); 
+            end
+            
+        end
+        
     end
     
     methods(Access = private)

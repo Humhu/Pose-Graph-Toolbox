@@ -2,7 +2,7 @@ function [r] = GenerateStraightRobot(world_dims)
     
     % Motion controller
     mc = StraightMotionController();
-    mc.velocity = 1/10;
+    mc.velocity = 1/33;
     mc.k_normal = 1;
     mc.ref = [0;0;0];
     mc.ref_direction = 0;

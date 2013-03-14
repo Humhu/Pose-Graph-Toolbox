@@ -10,6 +10,9 @@ classdef LinearMap < handle
         output_offset;
         output_valid;
         
+        orig_in;
+        orig_out;
+        
     end
     
     methods
@@ -18,6 +21,9 @@ classdef LinearMap < handle
             
             obj.input_offset = min(in) - 1;
             obj.output_offset = min(out) - 1;
+            
+            obj.orig_in = in;
+            obj.orig_out = out;
             
             in_shifted = in - obj.input_offset;
             out_shifted = out - obj.output_offset;

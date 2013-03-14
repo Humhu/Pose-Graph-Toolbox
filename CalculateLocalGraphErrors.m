@@ -62,20 +62,23 @@ for i = 1:D + 2
         shifted_truth = shifted_truth.GetSubset(translated_graph.robot_scope, translated_graph.time_scope);
         shifted_baseline = baseline_graph.Zero(translated_graph.base_id, translated_graph.base_time);
         shifted_baseline = shifted_baseline.GetSubset(translated_graph.robot_scope, translated_graph.time_scope);
-        shifted_odo = odo_graph.Zero(translated_graph.base_id, translated_graph.base_time);
-        shifted_odo = shifted_odo.GetSubset(translated_graph.robot_scope, translated_graph.time_scope);
+        %shifted_odo = odo_graph.Zero(translated_graph.base_id, translated_graph.base_time);
+        %shifted_odo = shifted_odo.GetSubset(translated_graph.robot_scope, translated_graph.time_scope);
         
         truth_plotter.PlotSequence(shifted_truth);
         baseline_plotter.PlotSequence(shifted_baseline);
-        odo_plotter.PlotSequence(shifted_odo);
+        %odo_plotter.PlotSequence(shifted_odo);
         belief_plotter.PlotSequence(translated_graph.subgraph);
         
         truth_plotter.HideLines();
         truth_plotter.HideLabels();
         baseline_plotter.HideLines();
         baseline_plotter.HideLabels();
-        odo_plotter.HideLines();
-        odo_plotter.HideLabels();
+        %odo_plotter.HideLines();
+        %odo_plotter.HideLabels();
+        
+        axis(truth_plotter.axe, 'tight');
+        
     end
 
     cg_e = cg_truth_err;
