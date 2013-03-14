@@ -132,9 +132,10 @@ classdef Simulator2D < handle
             localInd = 1;
             
             for i = 1:N
+                obj.comms.ProcessTransactions(obj.world.state.time); 
                 obj.world.Step();
-                state = obj.world.GetState();
-                
+                                
+                state = obj.world.GetState();                
                 state = ChainedGraph.Compress(state);
                 
                 localHist(localInd) = state;
@@ -142,9 +143,7 @@ classdef Simulator2D < handle
                 if obj.vis_on
                     obj.plotter.PlotSequence(state);
                 end
-            end
-            
-            obj.comms.ProcessTransactions();
+            end                        
             
             obj.history(obj.history_ind:obj.history_ind + N - 1) = localHist;
             obj.history_ind = obj.history_ind + N;

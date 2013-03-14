@@ -13,6 +13,7 @@ classdef SyncPostOffice < handle
         
         pendingTransactions;  % Messages that have been pushed to send
         idCounter;  % Next available ID
+        commlog; %Format is columns [time, from, to] in commIDs
         
     end
     
@@ -24,6 +25,13 @@ classdef SyncPostOffice < handle
             obj.inboxes = BinBuffer.empty(1,0);
             obj.outboxes = BinBuffer.empty(1,0);
             obj.idCounter = 1;
+            obj.commlog;
+            
+        end
+        
+        function [clog] = GetCommlog(obj)
+            
+            clog = obj.commlog;
             
         end
         
@@ -77,19 +85,23 @@ classdef SyncPostOffice < handle
             
         end
         
-        function ProcessTransactions(obj)
+        % Need time from world to log correctly
+        function ProcessTransactions(obj, time)
             
-            for i = 1:numel(obj.pendingTransactions)
+            N = numel(obj.pendingTransactions);
+            log_entry = zeros(N, 3);
+            for i = 1:N
                 
                 m = obj.pendingTransactions{i};
                 to = m.recipientID;
                 if ~obj.CheckID(to)
                     continue
                 end
+                log_entry(i,:) = [time, m.senderID, to];
                 obj.inboxes(to).Push(m);
                 
             end
-            
+            obj.commlog = [obj.commlog; log_entry];
             obj.pendingTransactions = {};
             
         end
