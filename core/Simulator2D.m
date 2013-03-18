@@ -122,7 +122,7 @@ classdef Simulator2D < handle
         end
         
         % Proceed N time steps
-        function [] = Step(obj, N)
+        function Step(obj, N)
             
             if nargin == 1
                 N = 1;

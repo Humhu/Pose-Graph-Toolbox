@@ -36,6 +36,12 @@ classdef SyncPostOffice < handle
             
         end
         
+        function [n] = GetPendingSize(obj)
+           
+            n = numel(obj.pendingTransactions);
+            
+        end
+        
         function [id] = Register(obj)
             
             id = obj.idCounter;

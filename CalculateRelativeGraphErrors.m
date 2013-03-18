@@ -9,13 +9,13 @@ baseline_errs = zeros(D, 1);
 odo_errs = zeros(D, 1);
 
 % Get comparison solutions
-%gn = GNSolver(1E-6, 100);
-%odo = OdometrySolver(1E-6, 100);
+gn = GNSolver(1E-6, 100);
+odo = OdometrySolver(1E-6, 100);
 
-%baseline_graph = gn.Solve(true_graph);
-%odo_graph = odo.Solve(true_graph);
-baseline_graph = true_graph;
-odo_graph = true_graph;
+baseline_graph = gn.Solve(true_graph);
+odo_graph = odo.Solve(true_graph);
+% baseline_graph = true_graph;
+% odo_graph = true_graph;
 
 for i = 1:D
    
@@ -29,7 +29,7 @@ for i = 1:D
         cg = graphs(j);
         
         all_id = cg.robot_scope;
-        zero_id = cg.robot_scope(1);
+        zero_id = cg.base_id;
         zero_t = cg.time_scope(end);
         
         est = cg.subgraph.Zero(zero_id, zero_t);        

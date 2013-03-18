@@ -25,7 +25,7 @@ classdef BinBuffer < handle
         
         function [new] = Copy(obj)
            
-            new = BinBuffer(size(obj.buff,1), size(obj.buff,2));
+            new = BinBuffer(numel(obj.buff));
             
         end
         

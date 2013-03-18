@@ -40,6 +40,7 @@ classdef Robot < handle
             
             obj.pose = a.pose;
             obj.ID = a.ID;
+            obj.odometry = [];
             
             obj.RegisterMotionController(a.motionController.Copy());
             obj.RegisterMotionModel(a.motionModel.Copy());
@@ -59,7 +60,7 @@ classdef Robot < handle
         
         % TODO: Make this less hacky somehow
         % Perhaps store a robot handle in the sensors instead of ID?
-        function [] = SetID(obj, id)
+        function SetID(obj, id)
             
             obj.ID = id;
             if ~isempty(obj.motionController)
@@ -76,21 +77,21 @@ classdef Robot < handle
             
         end
         
-        function [] = RegisterMotionController(obj, mc)
+        function RegisterMotionController(obj, mc)
             
             obj.motionController = mc;
             mc.ownerID = obj.ID;
             
         end
         
-        function [] = RegisterMotionModel(obj, mm)
+        function RegisterMotionModel(obj, mm)
             
             obj.motionModel = mm;
             mm.ownerID = obj.ID;
             
         end
         
-        function [] = RegisterSensor(obj, s)
+        function RegisterSensor(obj, s)
             
             obj.sensors = [obj.sensors, {s}];
             s.ownerID = obj.ID;
@@ -98,7 +99,7 @@ classdef Robot < handle
         end
         
         % Roles should be registered in lowest-level first order
-        function [] = RegisterRole(obj, r)
+        function RegisterRole(obj, r)
             
             obj.roles = [obj.roles, r];
             obj.roles(end).commID = obj.comms.Register();
@@ -107,14 +108,14 @@ classdef Robot < handle
             
         end
         
-        function [] = RegisterCommunications(obj, c)
+        function RegisterCommunications(obj, c)
            
             obj.comms = c;
             % Robots don't register with the postoffice right now
             
         end
         
-        function [] = Step(obj, state)
+        function Step(obj, state)
             
             [idMap, ~] = state.BuildMaps();
             currPose = state.poses(:,idMap.Forward(obj.ID));
@@ -127,8 +128,11 @@ classdef Robot < handle
             obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);                                            
             
             nextPose = currPose + u;
-            nextPose(3) = wrapToPi(nextPose(3));                
+            nextPose(3) = wrapToPi(nextPose(3));              
             
+            % TODO Has to come after odometry! Fix this!!
+            obj.GenerateMeasurements(state);
+                
             % TODO generalize to sensor and move to module
             obj.odometry = MeasurementRelativePose(currPose, nextPose, zeros(3));
             obj.odometry.covariance = obj.motionModel.covariance;
@@ -137,9 +141,6 @@ classdef Robot < handle
             obj.odometry.observer_time = state.time;
             obj.odometry.target_time = state.time + 1;
             
-            % TODO Has to come after odometry! Fix this!!
-            obj.GenerateMeasurements(state);
-                
             leaf_commID = obj.roles(end).commID;
             for i = 1:numel(obj.measurements)
                 m = MeasurementUpdateMessage(leaf_commID, leaf_commID, ...
@@ -150,6 +151,14 @@ classdef Robot < handle
             
             for i = 1:numel(obj.roles)
                obj.roles(i).Step(); 
+            end
+            
+        end
+        
+        function CommStep(obj)
+           
+            for i = 1:numel(obj.roles)
+               obj.roles(i).CommStep(); 
             end
             
         end

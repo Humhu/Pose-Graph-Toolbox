@@ -69,6 +69,15 @@ classdef World2D < handle
                 
             end                        
             
+            % Terrible hack to allow robots a parallel processing guarantee
+            % before communications has to happen
+            for i = 1:N
+               
+                r = obj.robots(i);
+                r.CommStep();
+                
+            end  
+            
             obj.state.time = obj.state.time + 1;
             obj.state.poses = obj.GetPoses();
             obj.GenerateMeasurements();

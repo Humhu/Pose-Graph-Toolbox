@@ -16,6 +16,7 @@ classdef HierarchyRole < handle
         % the ancestor at level (i + 1) wrt ancestor at level (i).
         
         chained_graph; % Estimator data structure
+        translate_buff; % Buffer of measurements to translate
         
         last_rep_transmit; % Last time we transmitted up
         last_sent_rep_time;     % Latest time of the last set of reps we sent
@@ -40,6 +41,7 @@ classdef HierarchyRole < handle
             obj.last_sent_rep_time = 0;
             obj.last_chain_transmit = 0;
             obj.last_sent_chain_time = 0;
+            obj.translate_buff = BinBuffer(100);
             
         end
         
@@ -69,10 +71,10 @@ classdef HierarchyRole < handle
             new.followers = obj.followers;
             new.higher_beliefs = obj.higher_beliefs;
             new.chained_graph = obj.chained_graph.Copy();
+            new.translate_buff = obj.translate_buff.Copy();
             
         end
         
-        % TODO: Clean up naming for these Get/Traverse type methods
         % Return indices of team (self and followers)
         function [ids] = GetTeam(obj)
             
@@ -98,23 +100,6 @@ classdef HierarchyRole < handle
             for i = 1:k
                 anc = anc.leader;
             end
-            
-        end
-        
-        % Queries position at time t relative to level k leader
-        % k = 0 returns relative to root, k = -1 returns global estimate
-        % TODO: Deprecate!
-        function [rel] = QueryRelation(obj, k, t)
-            
-            if ~ismember(t, obj.chained_graph.time_scope)
-                error('Invalid relation query %d in scope %d', ...
-                    t, obj.chained_graph.time_scope);
-            end
-            
-            d = obj.chained_graph.depth - k;
-            k_graph = obj.chained_graph.ApplyLinks(d);            
-            relation = k_graph.CreateRelation('base', [obj.ownerID, t]);                        
-            rel = k_graph.Extract(relation);
             
         end
         
@@ -190,54 +175,46 @@ classdef HierarchyRole < handle
             
         end
         
-        % Translates an extra-group measurement to the appropriate frame
-        % and level
-        % Currently we assume that only the target ID can be extra-group
-        function TranslateMeasurement(obj, m)
+        % Translates all buffered measurements to the most recent
+        % representative - should be the current base since we only call
+        % this right before we transmit representatives
+        function TranslateMeasurements(obj)
             
-            % Find target's corresponding role agent and LCA
-            reciprocal = FindReciprocal(obj, m.target_id);
-            %common = FindLCA(obj, reciprocal);
-            %d = common.chained_graph.depth;            
+            all_meas = obj.translate_buff.PopAll();
             
-            local_id = m.observer_id;
-            local_time = m.observer_time;
-            other_id = m.target_id;
-            other_time = m.target_time;
+            for i = 1:numel(all_meas)
             
-            %local_k = obj.chained_graph.depth - d - 1;
-            %other_k = other.chained_graph.depth - d - 1;            
-            %local_to_proxy = obj.chained_graph.DepthExtract(local_id, local_time, local_k);            
-            %other_to_proxy = other.chained_graph.DepthExtract(other_id, other_time, other_k);
+                m = all_meas{i};
+                
+                % Find reciprocal role
+                reciprocal = FindReciprocal(obj, m.target_id);
+                lca = FindLCA(obj, reciprocal);
+                
+                if mod(m.observer_time, lca.chained_graph.time_scale) ~= 0
+                    continue;
+                end
+                
+                local_rel = obj.chained_graph.CreateRelation('base', [m.observer_id, m.observer_time]);                
+                rep_to_local = obj.chained_graph.Extract(local_rel);
+                recip_rel = reciprocal.chained_graph.CreateRelation([m.target_id, m.target_time], 'base');                
+                local_to_recip = reciprocal.chained_graph.Extract(recip_rel);
+                
+                m = rep_to_local.Compose(m);
+                m = m.Compose(local_to_recip);
+                messg = MeasurementUpdateMessage(obj.leader.commID, obj.commID, m);
+                messg.sendTime = obj.time;
+                obj.comms.Deposit(obj.commID, {messg});
             
-            local_rel = obj.chained_graph.CreateRelation('base', [local_id, local_time]);
-            local_rel.observer_time = obj.chained_graph.time_scope(1);
-            rep_to_local = obj.chained_graph.Extract(local_rel);
-            recip_rel = reciprocal.chained_graph.CreateRelation([other_id, other_time], 'base');
-            recip_rel.target_time = reciprocal.chained_graph.time_scope(1);
-            local_to_recip = reciprocal.chained_graph.Extract(recip_rel);
-            
-            m = rep_to_local.Compose(m);
-            m = m.Compose(local_to_recip);
-            %m = local_to_proxy.Compose(m);
-            %m = m.Compose(other_to_proxy.ToInverse());
-            %messg = MeasurementUpdateMessage(common.commID, obj.commID, m);
-            messg = MeasurementUpdateMessage(obj.leader.commID, obj.commID, m);
-            messg.sendTime = obj.time;            
-            obj.comms.Deposit(obj.commID, {messg});
-            
+            end
         end
         
         % Process internal functions. Should be called once every time
         % step.
-        function Step(obj)
-            
-            obj.time = obj.time + 1;
+        function Step(obj)                        
             
             % Split messages
             all_messages = obj.comms.Withdraw(obj.commID);
             local_measurements = {};
-            oos_measurements = {};
             if ~isempty(all_messages)
                 measurement_messages = Message.GetType(all_messages, 'MeasurementUpdate');
                 measurement_messages = Message.SortSendTime(measurement_messages);
@@ -254,7 +231,8 @@ classdef HierarchyRole < handle
                 m = measurement_messages{i};
                 z = m.contents;
                 if ~any(z.target_id == team_ids) || ~any(z.observer_id == team_ids)
-                    oos_measurements = [oos_measurements, {z}];
+                    %oos_measurements = [oos_measurements, {z}];
+                    obj.translate_buff.Push(z);
                 else
                     times = [times, z.observer_time, z.target_time];
                     local_measurements = [local_measurements, {z}];
@@ -273,9 +251,7 @@ classdef HierarchyRole < handle
                 
                 % Update chain
                 obj.chained_graph.SetBase(obj.chained_graph.base_id, latest_t);
-                obj.chained_graph.UpdateLink();
-                obj.PushChains();
-                
+                obj.chained_graph.UpdateLink();                
             end
             
             if ~isempty(chain_updates)
@@ -284,20 +260,19 @@ classdef HierarchyRole < handle
                     ' s_t: ', num2str(z.observer_time), ' e_id: ', num2str(z.target_id), ...
                     ' e_t: ', num2str(z.target_time), '\n']);
                 obj.ChainUpdate(chain_updates{end}.contents);
-            else
-                obj.PushChains();
-            end
+            end                                   
             
-            for i = 1:numel(oos_measurements)
-                obj.TranslateMeasurement(oos_measurements{i});
-            end            
+        end
+        
+        % This step called after all other graphs have stepped
+        function CommStep(obj)
             
             % Chain transmit
             if ~isempty(obj.followers)
                 time_passed = obj.time - obj.last_chain_transmit >= obj.chained_graph.time_scale;
                 interesting = obj.chained_graph.time_scope(end) ~= obj.last_sent_chain_time;
                 if time_passed && interesting
-                    fprintf('\tCG(%d,%d) transmitting chains\n', obj.ownerID, ...
+                    fprintf('\tCG(%d,%d) transmitting down\n', obj.ownerID, ...
                         obj.chained_graph.depth);
                     obj.PushChains();
                     obj.comms.Transmit(obj.commID);
@@ -306,20 +281,23 @@ classdef HierarchyRole < handle
                 end
             end
                
-            % Representative transmit                
+            % Representative & measurement transmit              
             if ~isempty(obj.leader)
                 time_passed = obj.time - obj.last_rep_transmit >= obj.leader.chained_graph.time_scale;
                 interesting = obj.chained_graph.time_scope(end) - obj.last_sent_rep_time ...
                     >= obj.leader.chained_graph.time_scale;
                 if time_passed && interesting
-                    fprintf('\tCG(%d,%d) transmitting reps\n', obj.ownerID, ...
+                    fprintf('\tCG(%d,%d) transmitting up\n', obj.ownerID, ...
                         obj.chained_graph.depth);
-                    obj.TransmitRepresentatives();
+                    obj.PushRepresentatives();
+                    obj.TranslateMeasurements();
                     obj.comms.Transmit(obj.commID);
                     obj.last_rep_transmit = obj.time;
                     obj.last_sent_rep_time = obj.chained_graph.time_scope(end);
                 end
-            end
+            end                        
+                                    
+            obj.time = obj.time + 1;
             
         end
         
@@ -379,7 +357,7 @@ classdef HierarchyRole < handle
             
         end
         
-        function TransmitRepresentatives(obj)
+        function PushRepresentatives(obj)
             
             if isempty(obj.chained_graph.parent)
                 return
