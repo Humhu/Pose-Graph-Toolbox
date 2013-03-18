@@ -93,7 +93,7 @@ classdef ChainedGraph < handle
             
         end
         
-        function SetBase(obj, base_time, base_id)
+        function SetBase(obj, base_id, base_time)
 
             if ~ismember(base_time, obj.time_scope)
                error('Base time %d not in time scope %4d.', base_time, obj.time_scope); 
@@ -102,7 +102,7 @@ classdef ChainedGraph < handle
             
             if ~any(obj.subgraph(1).ids == base_id)
                 error(['Cannot set base ID to outside of initialized scope. ', ...
-                    'base ID: %d, ID scope: %4d'], base_id, state(1).ids);
+                    'base ID: %d, ID scope: %4d'], base_id, obj.subgraph(1).ids);
             end
             obj.base_id = base_id;
             obj.Zero();
@@ -160,7 +160,7 @@ classdef ChainedGraph < handle
             
         end
         
-        % Contract and marginalize the subgraph
+        % Contract graph and update link
         function Contract(obj, t_start)
             
             if t_start <= obj.time_scope(1)
@@ -173,44 +173,9 @@ classdef ChainedGraph < handle
             if isempty(cut_ind)
                 error('Cut time %d not in scope $4d', t_start, obj.time_scope);
             end
-            
-            % Marginalize by optimizing info leaving scope
-            % Will initialize overlap state to prev state's poses
-            % EDIT: Turns out this seems bad. Just read off the graph for
-            % now.
-%             margin_graph = obj.subgraph(1:cut_ind);
-%             margin_graph(end).poses = margin_graph(end-1).poses;
-%             margin_graph(end).measurements = {};
-%             [margin_graph, margin_cov] = obj.solver.Solve(margin_graph);
-            margin_graph = obj.subgraph();
-            margin_cov = obj.estimate_covariance;
-
-            nonbase_ids = obj.subgraph(1).ids;
-            nonbase_ids(nonbase_ids == obj.base_id) = [];
-            
-            template_relation = MeasurementRelativePose();
-            template_relation.observer_id = obj.base_id;
-            template_relation.observer_time = t_start;
-            template_relation.target_time = t_start;
-            
-            margin_relations = cell(1, numel(nonbase_ids));
-            
-            for i = 1:numel(nonbase_ids)
-                                
-                template_relation.target_id = nonbase_ids(i);
-                margin_relations{i} = ChainedGraph.ReadRelation(margin_graph, ...
-                    template_relation, margin_cov);
-                
-            end
-            
-            % Cut subgraph and incorporate relations generated from
-            % marginalizing cut information
+                        
             obj.time_scope = obj.time_scope(cut_ind:end);
-            obj.subgraph = obj.subgraph(cut_ind:end);            
-            obj.Incorporate(margin_relations);
-            
-            % Optimize and zero
-            obj.Zero();
+            obj.subgraph = obj.subgraph(cut_ind:end);     
             obj.Optimize();
             
         end
@@ -225,11 +190,10 @@ classdef ChainedGraph < handle
                 t_ind = tMap.Forward(z.observer_time);
                 
                 if isempty(t_ind)
-                    continue;
-                    % Not an error anymore..just ignore it.
-                    %error(['Cannot incorporate out-of-scope measurement.', ...
-                    %    ', z_t: ', num2str(z.observer_time), ...
-                    %    ' scope: ', num2str(obj.time_scope),'\n']);
+                    %continue;                    
+                    error(['Cannot incorporate out-of-scope measurement.', ...
+                       ', z_t: ', num2str(z.observer_time), ...
+                       ' scope: ', num2str(obj.time_scope),'\n']);
                 end
                     
                 % Append non-odometric, replace odometric
@@ -332,6 +296,20 @@ classdef ChainedGraph < handle
                 shifted.base_time = link.observer_time;
                 
             end
+            
+        end
+        
+        % Updates the local link to be consistent with the base node
+        function UpdateLink(obj)
+            
+            link = obj.chain(end);
+            old_time = link.target_time;
+            old_id = link.target_id;
+            
+            update_rel = obj.CreateRelation([old_id, old_time], 'base');            
+            update_z = obj.Extract(update_rel);            
+            obj.chain(end) = link.Compose(update_z);
+            
             
         end
         

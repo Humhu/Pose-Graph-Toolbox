@@ -151,7 +151,7 @@ classdef HierarchyRole < handle
             substate.measurements = {}; % Do we want this?
             
             obj.chained_graph.Initialize(substate);
-            obj.chained_graph.SetBase(substate.time, substate.ids(1));
+            obj.chained_graph.SetBase(substate.ids(1), substate.time);
             
             obj.time = 0;
             
@@ -169,28 +169,25 @@ classdef HierarchyRole < handle
         end
         
         % Update the subgraph chain in response to receiving new links
-        function ChainUpdate(obj, beliefs)
+        function ChainUpdate(obj, update)
             
-            obj.chained_graph.chain = beliefs;
+            % Last link in update needs to be shifted to local base
+            obj.chained_graph.chain = update;            
+            obj.chained_graph.UpdateLink();                        
             
             % Update local position estimates
             obj.BuildEstimates(obj.chained_graph.chain);
             
-            % Update local graph times
-            base_time = beliefs(end).target_time;
-            obj.chained_graph.SetBase(base_time, obj.chained_graph.base_id);
-            
-            % We leave some overlap when contracting
+            % We leave some overlap when contracting            
             if ~isempty(obj.chained_graph.parent)
                 parent_scale = obj.chained_graph.parent.time_scale;
             else
                 parent_scale = obj.chained_graph.time_scale;
-            end
-            
+            end            
             alpha = obj.chained_graph.time_overlap;
-            start_time = base_time - alpha*parent_scale;
+            start_time = update(end).target_time - alpha*parent_scale;
             obj.chained_graph.Contract(start_time);
-                        
+            
         end
         
         % Translates an extra-group measurement to the appropriate frame
@@ -199,24 +196,34 @@ classdef HierarchyRole < handle
         function TranslateMeasurement(obj, m)
             
             % Find target's corresponding role agent and LCA
-            other = FindLMR(obj, m.target_id);
-            common = FindLCA(obj, other);
-            d = common.chained_graph.depth;            
+            reciprocal = FindReciprocal(obj, m.target_id);
+            %common = FindLCA(obj, reciprocal);
+            %d = common.chained_graph.depth;            
             
             local_id = m.observer_id;
             local_time = m.observer_time;
             other_id = m.target_id;
             other_time = m.target_time;
-            local_k = obj.chained_graph.depth - d - 1;
-            other_k = other.chained_graph.depth - d - 1;
-            local_to_proxy = obj.chained_graph.DepthExtract(local_id, local_time, local_k);            
-            other_to_proxy = other.chained_graph.DepthExtract(other_id, other_time, other_k);
             
-            m = local_to_proxy.Compose(m);
-            m = m.Compose(other_to_proxy.ToInverse());
-            messg = MeasurementUpdateMessage(common.commID, obj.commID, m);
-            messg.sendTime = obj.time;
-            %common.PushMeasurements(m);
+            %local_k = obj.chained_graph.depth - d - 1;
+            %other_k = other.chained_graph.depth - d - 1;            
+            %local_to_proxy = obj.chained_graph.DepthExtract(local_id, local_time, local_k);            
+            %other_to_proxy = other.chained_graph.DepthExtract(other_id, other_time, other_k);
+            
+            local_rel = obj.chained_graph.CreateRelation('base', [local_id, local_time]);
+            local_rel.observer_time = obj.chained_graph.time_scope(1);
+            rep_to_local = obj.chained_graph.Extract(local_rel);
+            recip_rel = reciprocal.chained_graph.CreateRelation([other_id, other_time], 'base');
+            recip_rel.target_time = reciprocal.chained_graph.time_scope(1);
+            local_to_recip = reciprocal.chained_graph.Extract(recip_rel);
+            
+            m = rep_to_local.Compose(m);
+            m = m.Compose(local_to_recip);
+            %m = local_to_proxy.Compose(m);
+            %m = m.Compose(other_to_proxy.ToInverse());
+            %messg = MeasurementUpdateMessage(common.commID, obj.commID, m);
+            messg = MeasurementUpdateMessage(obj.leader.commID, obj.commID, m);
+            messg.sendTime = obj.time;            
             obj.comms.Deposit(obj.commID, {messg});
             
         end
@@ -256,27 +263,22 @@ classdef HierarchyRole < handle
             latest_t = max(times);
             
             if ~isempty(local_measurements)
+                
                 % Extend to cover new times, then incorporate and optimize
                 obj.chained_graph.Extend(latest_t);
+                
+                % Incorporate and optimize                
                 obj.chained_graph.Incorporate(local_measurements);
                 obj.chained_graph.Optimize();
+                
+                % Update chain
+                obj.chained_graph.SetBase(obj.chained_graph.base_id, latest_t);
+                obj.chained_graph.UpdateLink();
+                obj.PushChains();
+                
             end
             
-            % Begins a 'fake' chain update for root
-            if obj.chained_graph.depth == 0
-                relation = obj.chained_graph.CreateRelation('base', 'base');
-                beta = obj.chained_graph.chain_holdoff;
-                if beta >= numel(obj.chained_graph.time_scope)
-                    t_ind = 1;
-                else
-                    t_ind = numel(obj.chained_graph.time_scope) - beta;
-                end
-                relation.target_time = obj.chained_graph.time_scope(t_ind);
-                z = obj.chained_graph.Extract(relation);
-                gchain = obj.chained_graph.chain(1);
-                gchain = gchain.Compose(z);
-                obj.ChainUpdate(gchain);
-            elseif ~isempty(chain_updates)
+            if ~isempty(chain_updates)
                 z = chain_updates{end}.contents(end);
                 fprintf(['\tChain update received. s_id: ', num2str(z.observer_id), ...
                     ' s_t: ', num2str(z.observer_time), ' e_id: ', num2str(z.target_id), ...

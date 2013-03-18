@@ -1,6 +1,4 @@
-% Finds the a matching role in the tree at the same level with a given ID
-% TODO: Make more efficient
-function [match] = FindLMR(start, ID)
+function [match] = FindReciprocal(start, ID)
 
 level = start.chained_graph.depth;
 prev = start;
@@ -38,12 +36,8 @@ end
 
 for i = 1:numel(prev.followers)
    f = prev.followers(i);
-   if f.ownerID == ID;
+   if ismember(ID, f.chained_graph.robot_scope)
        match = f;
        break
    end
-end
-
-if isempty(match)
-    a = -1;
 end
