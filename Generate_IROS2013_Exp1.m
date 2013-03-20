@@ -3,20 +3,20 @@
 % Use same seeds for each trial per experiment
 seeds = 1:1;
 num_trials = numel(seeds);
-trial_length = 40; % Number of steps to simulate per trial
+trial_length = 400; % Number of steps to simulate per trial
 
 % Test parameters
-time_scales = 3.^(2:-1:0);
-time_overlaps = [2,1,0];
+time_scales = [40,8,1];
+time_overlaps = [4,1,0];
 
 % Other fixed parameters
-world_dims = [80;20];
+world_dims = [80;80];
 %chain_holdoff = [1; 1; 1];
 chain_holdoff = [0; 0; 0];
-representative_holdoff = [0; 0; 0];
+representative_holdoff = [6; 0; 0];
 
 % Fractal positioning parameters
-center = [-30; 0; 0]; %zeros(3,1);
+center = [5; 0; 0]; %zeros(3,1);
 d = 3; % Hierarchy depth
 b = 3; % Branching factor
 f = 0.5; % Fractal size
@@ -32,21 +32,23 @@ trial_rel_be = zeros(d, trial_length, num_trials);
 trial_rel_oe = zeros(d, trial_length, num_trials);
 
 % Timing
-exp_mod = 10;
-tri_mod = 5;
+tri_mod = 1;
 
-r_template = GenerateStraightRobot(world_dims);
+%r_template = GenerateStraightRobot(world_dims);
+r_template = GenerateOrbitRobot(world_dims);
 
 N = b^(d-1);
 
 % Visualization
 truth_plotter = SequencePlotter(world_dims);
-truth_plotter.z_scale = 0.2;
+truth_plotter.z_scale = 0.1;
 truth_plotter.colors = repmat([0,0,0],N,1);
+truth_plotter.labels_on = false(1);
 
 belief_plotter = HierarchyPlotter(world_dims);
-belief_plotter.z_scale = 0.2;
+belief_plotter.z_scale = 0.1;
 belief_plotter.Link(truth_plotter);
+belief_plotter.labels_on = false(1);
 belief_plotter.colors = [0, 0, 1;
                          0, 1, 0;
                          1, 0, 0];
@@ -123,8 +125,8 @@ for s = 1:num_trials
     init = gn.Solve(sim.world.state);
     
     root = sim.world.robots(1).roles(1); %hardcoded for now
-    %root.Initialize(init); % Initializes the entire tree
-    root.Initialize(sim.world.state);
+    root.Initialize(init); % Initializes the entire tree
+    %root.Initialize(sim.world.state);
     
     leafs = ChainedGraph.empty(0, numel(sim.world.robots));
     for i = 1:numel(sim.world.robots)

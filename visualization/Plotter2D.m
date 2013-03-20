@@ -12,6 +12,11 @@ classdef Plotter2D < handle
         
         z_scale = 1; % Height scaling
         
+        % Enables
+        lines_on;
+        labels_on;
+        robots_on;
+        
         % Graphics handles
         line_handles;
         label_handles;
@@ -46,6 +51,10 @@ classdef Plotter2D < handle
             grid off;
             axis vis3d;                        
             hold(obj.axe, 'on');          
+            
+            obj.lines_on = true(1);
+            obj.labels_on = true(1);
+            obj.robots_on = true(1);
             
             % Assign graphics groups
             obj.line_handles = hggroup('parent', obj.axe);
@@ -135,6 +144,10 @@ classdef Plotter2D < handle
         %   s - Size
         function PlotRobot(obj, p, t, c, s)
             
+            if ~obj.robots_on
+                return;
+            end
+            
             x = p(1);
             y = p(2);
             
@@ -167,6 +180,10 @@ classdef Plotter2D < handle
         end
         
         function PlotLabel(obj, p, t, l)
+            
+            if ~obj.labels_on
+                return;
+            end
             
             x = p(1);
             y = p(2);
@@ -217,6 +234,10 @@ classdef Plotter2D < handle
         end
         
         function PlotLine(obj, start, finish, params)
+            
+            if ~obj.lines_on
+                return;
+            end
             
             if nargin == 3
                 params = {};

@@ -9,7 +9,7 @@ classdef OrbitMotionController < handle & MotionController
         
         ownerID;
         ref;
-        motionGain;
+        omega;
         
     end
     
@@ -22,15 +22,18 @@ classdef OrbitMotionController < handle & MotionController
             end
             
             obj.ref = omc.ref;
-            obj.motionGain = omc.motionGain;
+            obj.omega = omc.omega;
             
+        end
+        
+        function Initialize(obj, state)
         end
         
         % TODO: For now, beliefs is robot pose. Needs to be updated to be more general!
         function [u] = GenerateOutputs(obj, beliefs)
            
-            radius = norm(beliefs(1:2));
-            da = obj.motionGain/radius;
+            %radius = norm(beliefs(1:2));
+            da = obj.omega;
             R = [cos(da), -sin(da);
                 sin(da), cos(da)];       
             

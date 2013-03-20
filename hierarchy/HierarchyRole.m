@@ -251,7 +251,12 @@ classdef HierarchyRole < handle
                 
                 % Update chain
                 obj.chained_graph.SetBase(obj.chained_graph.base_id, latest_t);
-                obj.chained_graph.UpdateLink();                
+                obj.chained_graph.UpdateLink();  
+                
+                if obj.chained_graph.depth == 0
+                   obj.ChainUpdate(obj.chained_graph.chain); 
+                end
+                
             end
             
             if ~isempty(chain_updates)

@@ -12,10 +12,10 @@ odo_errs = zeros(D, 1);
 gn = GNSolver(1E-6, 100);
 odo = OdometrySolver(1E-6, 100);
 
-baseline_graph = gn.Solve(true_graph);
-odo_graph = odo.Solve(true_graph);
-% baseline_graph = true_graph;
-% odo_graph = true_graph;
+%baseline_graph = gn.Solve(true_graph);
+%odo_graph = odo.Solve(true_graph);
+baseline_graph = true_graph;
+odo_graph = true_graph;
 
 for i = 1:D
    
@@ -47,6 +47,14 @@ for i = 1:D
         cg_e = true.poses - est.poses;
         b_e = true.poses - baseline.poses;
         o_e = true.poses - odo.poses;
+        
+        cg_e(3,:) = wrapToPi(cg_e(3,:));
+        b_e(3,:) = wrapToPi(b_e(3,:));
+        o_e(3,:) = wrapToPi(o_e(3,:));
+        
+        cg_e(:,1) = [];
+        b_e(:,1) = [];
+        o_e(:,1) = [];
         
         cg_err(i) = mean(sqrt(sum(cg_e.*cg_e, 1)),2);
         b_err(i) = mean(sqrt(sum(b_e.*b_e, 1)),2);

@@ -1,13 +1,13 @@
-function [r] = GenerateStraightRobot(world_dims)
+function [r] = GenerateOrbitRobot(world_dims)
     
     update_rate = 40; % Hertz
 
     % Motion controller
-    mc = StraightMotionController();
-    mc.velocity = 1/update_rate;
-    mc.k_normal = 1;
-    mc.ref = [0;0;0];
-    mc.ref_direction = 0;
+    mc = OrbitMotionController();
+    mc.omega = 2*pi/20/update_rate; %20 seconds per rotation
+    %mc.k_normal = 1;
+    %mc.ref = [0;0;0];
+    %mc.ref_direction = 0;
     
     % Motion Model
     mm = GaussianMotionModel();
