@@ -1,5 +1,5 @@
 function [cg_errs, baseline_errs, odo_errs] = ...
-    CalculateRelativeGraphErrors(all_graphs, true_graph)
+    CalculateRelativeGraphErrors(all_graphs, true_graph, baseline_graph, odo_graph)
 
 D = numel(all_graphs);
 
@@ -7,15 +7,6 @@ D = numel(all_graphs);
 cg_errs = zeros(D, 1);
 baseline_errs = zeros(D, 1);
 odo_errs = zeros(D, 1);
-
-% Get comparison solutions
-gn = GNSolver(1E-6, 100);
-odo = OdometrySolver(1E-6, 100);
-
-%baseline_graph = gn.Solve(true_graph);
-%odo_graph = odo.Solve(true_graph);
-baseline_graph = true_graph;
-odo_graph = true_graph;
 
 for i = 1:D
    

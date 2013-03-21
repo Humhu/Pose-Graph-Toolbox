@@ -3,7 +3,7 @@
 % Use same seeds for each trial per experiment
 seeds = 1:1;
 num_trials = numel(seeds);
-trial_length = 400; % Number of steps to simulate per trial
+trial_length = 100; % Number of steps to simulate per trial
 
 % Test parameters
 time_scales = [40,8,1];
@@ -34,8 +34,8 @@ trial_rel_oe = zeros(d, trial_length, num_trials);
 % Timing
 tri_mod = 1;
 
-%r_template = GenerateStraightRobot(world_dims);
-r_template = GenerateOrbitRobot(world_dims);
+r_template = GenerateStraightRobot(world_dims);
+%r_template = GenerateOrbitRobot(world_dims);
 
 N = b^(d-1);
 
@@ -52,11 +52,6 @@ belief_plotter.labels_on = false(1);
 belief_plotter.colors = [0, 0, 1;
                          0, 1, 0;
                          1, 0, 0];
-% 
-% overlay_plotter = HierarchyPlotter(world_dims);
-% overlay_plotter.colors = [0, 0, 1;
-%                          0, 1, 0;
-%                          1, 0, 0];
      
 % Latest error plot                     
 local_lines = [];                     
@@ -160,8 +155,18 @@ for s = 1:num_trials
     
     for i = 1:trial_length
         
-        truth = sim.history(1:sim.history_ind-1);
-        [cg_errs, baseline_errs, odo_errs] = CalculateLeafGraphErrors(leafs, truth);        
+        t0 = cg0_0.time_scope(1);        
+        truth = sim.history(t0+1:sim.history_ind-1);
+        
+        gn = GNSolver(1E-3, 100);
+ %       odo = OdometrySolver(1E-6, 100);
+        %baseline_graph = gn.Solve(truth);        
+        baseline_graph = truth;
+%        odo_graph = odo.Solve(truth);
+        odo_graph = truth;
+
+        [cg_errs, baseline_errs, odo_errs] = ...
+            CalculateLeafGraphErrors(leafs, truth, baseline_graph, odo_graph);
         trial_latest_cge(:, i, s) = mean(cg_errs, 2);
         trial_latest_be(:, i, s) = mean(baseline_errs, 2);
         trial_latest_oe(:, i, s) = mean(odo_errs, 2);
@@ -178,7 +183,8 @@ for s = 1:num_trials
         
         fprintf('\tlocalization eg: %f e0: %f e1: %f e2: %f\n', eg, e0, e1, e2);
         
-        [cg_errs, baseline_errs, odo_errs] = CalculateRelativeGraphErrors(graphs, truth);
+        [cg_errs, baseline_errs, odo_errs] = ...
+            CalculateRelativeGraphErrors(graphs, truth, baseline_graph, odo_graph);
         trial_rel_cge(:, i, s) = cg_errs;
         trial_rel_be(:, i, s) = baseline_errs;
         trial_rel_oe(:,i, s) = odo_errs;
@@ -197,12 +203,6 @@ for s = 1:num_trials
         truth_plotter.HideLines();
         truth_plotter.HideLabels();
         
-%         overlay_plotter.Clear();
-%         overlay_plotter.PlotTruthOverlay(root, sim.history(1:sim.history_ind-1));
-%         overlay_plotter.HideLines();
-%         overlay_plotter.HideLabels();
-%         axis(overlay_plotter.axe, 'tight');
-%         fprintf('Press any key to continue...\n');
         pause(0.1);
         
         fprintf(['Step: ', num2str(i), ' Time: ', num2str(sim.world.state.time),'\n']);
@@ -276,112 +276,91 @@ relative_odo_ratios = mean(trial_rel_cge./trial_rel_oe, 3);
 % legend('k = 2', 'k = 1', 'k = 0', 'location', 'best');
 % title('Latest Odometry Performance Ratio vs. Steps');
 
-figure;
-hold on;
-plot(0:trial_length-1, latest_estimate_errors(1,:), 'rx-');
-plot(0:trial_length-1, latest_baseline_errors(1,:), 'b.-');
-xlabel('Step number');
-ylabel('Average error norm (m)');
-legend('Estimate', 'Global Optimum', 'location', 'best')
-title('Latest Depth 2 Estimate vs. Baseline Localized Error');
+% figure;
+% hold on;
+% plot(0:trial_length-1, latest_estimate_errors(1,:), 'rx-');
+% plot(0:trial_length-1, latest_baseline_errors(1,:), 'b.-');
+% xlabel('Step number');
+% ylabel('Average error norm (m)');
+% legend('Estimate', 'Global Optimum', 'location', 'best')
+% title('Latest Depth 2 Estimate vs. Baseline Localized Error');
+% 
+% figure;
+% hold on;
+% plot(0:trial_length-1, latest_estimate_errors(2,:), 'rx-');
+% plot(0:trial_length-1, latest_baseline_errors(2,:), 'b.-');
+% xlabel('Step number');
+% ylabel('Average error norm (m)');
+% legend('Estimate', 'Global Optimum', 'location', 'best')
+% title('Latest Depth 1 Estimate vs. Baseline Localized Error');
+% 
+% figure;
+% hold on;
+% plot(0:trial_length-1, latest_estimate_errors(3,:), 'rx-');
+% plot(0:trial_length-1, latest_baseline_errors(3,:), 'b.-');
+% xlabel('Step number');
+% ylabel('Average error norm (m)');
+% legend('Estimate', 'Global Optimum', 'location', 'best')
+% title('Latest Depth 0 Estimate vs. Baseline Localized Error');
+% 
+% figure;
+% hold on;
+% plot(0:trial_length-1, latest_estimate_errors(4,:), 'rx-');
+% plot(0:trial_length-1, latest_baseline_errors(4,:), 'b.-');
+% xlabel('Step number');
+% ylabel('Average error norm (m)');
+% legend('Estimate', 'Global Optimum', 'location', 'best')
+% title('Latest Global Frame Estimate vs. Baseline Localized Error');
 
 figure;
 hold on;
-plot(0:trial_length-1, latest_estimate_errors(2,:), 'rx-');
-plot(0:trial_length-1, latest_baseline_errors(2,:), 'b.-');
-xlabel('Step number');
-ylabel('Average error norm (m)');
-legend('Estimate', 'Global Optimum', 'location', 'best')
-title('Latest Depth 1 Estimate vs. Baseline Localized Error');
+plot(0:trial_length-1, latest_estimate_errors(2,:), 'g-', 'linewidth', 1.5);
+plot(0:trial_length-1, latest_estimate_errors(3,:), 'b-', 'linewidth', 1.5);
+plot(0:trial_length-1, latest_estimate_errors(4,:), 'm-', 'linewidth', 1.5);
+plot(0:trial_length-1, latest_baseline_errors(2,:), 'g:', 'linewidth', 2);
+plot(0:trial_length-1, latest_baseline_errors(3,:), 'b:', 'linewidth', 2);
+plot(0:trial_length-1, latest_baseline_errors(4,:), 'm:', 'linewidth', 2);
 
-figure;
-hold on;
-plot(0:trial_length-1, latest_estimate_errors(3,:), 'rx-');
-plot(0:trial_length-1, latest_baseline_errors(3,:), 'b.-');
 xlabel('Step number');
-ylabel('Average error norm (m)');
-legend('Estimate', 'Global Optimum', 'location', 'best')
-title('Latest Depth 0 Estimate vs. Baseline Localized Error');
-
-figure;
-hold on;
-plot(0:trial_length-1, latest_estimate_errors(4,:), 'rx-');
-plot(0:trial_length-1, latest_baseline_errors(4,:), 'b.-');
-xlabel('Step number');
-ylabel('Average error norm (m)');
-legend('Estimate', 'Global Optimum', 'location', 'best')
-title('Latest Global Frame Estimate vs. Baseline Localized Error');
-
-figure;
-hold on;
-plot(0:trial_length-1, latest_estimate_errors(1,:), 'rx-');
-plot(0:trial_length-1, latest_baseline_errors(1,:), 'r.-');
-plot(0:trial_length-1, latest_estimate_errors(2,:), 'gx-');
-plot(0:trial_length-1, latest_baseline_errors(2,:), 'g.-');
-plot(0:trial_length-1, latest_estimate_errors(3,:), 'bx-');
-plot(0:trial_length-1, latest_baseline_errors(3,:), 'b.-');
-plot(0:trial_length-1, latest_estimate_errors(4,:), 'mx-');
-plot(0:trial_length-1, latest_baseline_errors(4,:), 'm.-');
-xlabel('Step number');
-ylabel('Average error norm (m)');
-legend('k = 2 CG', 'k = 2 MLE', 'k = 1 CG', 'k = 1 MLE', ...
-    'k = 0 CG', 'k = 0 MLE', 'Global CG', 'Global MLE', 'location', 'best')
-title('Chained Graph vs. Baseline Localized Error');
+ylabel('Average localization error norm (m)');
+legend('k = 1 CGH', 'k = 0 CGH', 'Global CGH', ...
+       'k = 1 Baseline', 'k = 0 Baseline', 'Global Baseline', ...
+       'location', 'best')
+title('Chained Graph and Baseline Localization Error');
 
 
 %%
 
-% figure;
+ figure;
 hold on;
-plot(0:trial_length-1, relative_baseline_ratios(1,:), 'ro-');
-plot(0:trial_length-1, relative_baseline_ratios(2,:), 'bx-');
-plot(0:trial_length-1, relative_baseline_ratios(3,:), 'g+-');
+plot(0:trial_length-1, relative_baseline_ratios(2,:), 'g-', 'linewidth', 2);
+plot(0:trial_length-1, relative_baseline_ratios(3,:), 'b-', 'linewidth', 2);
 plot([0,trial_length-1], [1,1], 'k--');
 xlabel('Step number');
 ylabel('CG error/GN error');
-legend('k = 2', 'k = 1', 'k = 0', 'location', 'best');
+legend('k = 1', 'k = 0', 'location', 'best');
 title('Baseline Relative Performance Ratio vs. Steps');
 
-figure;
-hold on;
-plot(0:trial_length-1, relative_odo_ratios(1,:), 'ro-');
-plot(0:trial_length-1, relative_odo_ratios(2,:), 'bx-');
-plot(0:trial_length-1, relative_odo_ratios(3,:), 'g+-');
-plot([0,trial_length-1], [1,1], 'k--');
-xlabel('Step number');
-ylabel('CG error/GN error');
-legend('k = 2', 'k = 1', 'k = 0', 'location', 'best');
-title('Odometry Relative Performance Ratio vs. Steps');
+% figure;
+% hold on;
+% plot(0:trial_length-1, relative_odo_ratios(2,:), 'bx-');
+% plot(0:trial_length-1, relative_odo_ratios(3,:), 'g+-');
+% plot([0,trial_length-1], [1,1], 'k--');
+% xlabel('Step number');
+% ylabel('CG error/GN error');
+% legend('k = 2', 'k = 1', 'k = 0', 'location', 'best');
+% title('Odometry Relative Performance Ratio vs. Steps');
 
 figure;
 hold on;
-plot(0:trial_length-1, relative_estimate_errors(2,:), 'rx-');
-plot(0:trial_length-1, relative_baseline_errors(2,:), 'b.-');
+plot(0:trial_length-1, relative_estimate_errors(2,:), 'g-', 'linewidth', 2);
+plot(0:trial_length-1, relative_estimate_errors(3,:), 'b-', 'linewidth', 2);
+plot(0:trial_length-1, relative_baseline_errors(2,:), 'g:', 'linewidth', 2);
+plot(0:trial_length-1, relative_baseline_errors(3,:), 'b:', 'linewidth', 2);
 xlabel('Step number');
 ylabel('Average error norm (m)');
-legend('Estimate', 'Global Optimum', 'location', 'best')
-title('Depth 1 Estimate and Baseline Relative Error');
-
-figure;
-hold on;
-plot(0:trial_length-1, relative_estimate_errors(3,:), 'rx-');
-plot(0:trial_length-1, relative_baseline_errors(3,:), 'b.-');
-xlabel('Step number');
-ylabel('Average error norm (m)');
-legend('Estimate', 'Global Optimum', 'location', 'best')
-title('Depth 0 Estimate and Baseline Relative Error');
-
-figure;
-hold on;
-plot(0:trial_length-1, relative_estimate_errors(1,:), 'rx-');
-%plot(0:trial_length-1, relative_baseline_errors(1,:), 'r.-');
-plot(0:trial_length-1, relative_estimate_errors(2,:), 'gx-');
-%plot(0:trial_length-1, relative_baseline_errors(2,:), 'g.-');
-plot(0:trial_length-1, relative_estimate_errors(3,:), 'bx-');
-%plot(0:trial_length-1, relative_baseline_errors(3,:), 'b.-');
-xlabel('Step number');
-ylabel('Average error norm (m)');
-legend('k = 2', 'k = 1', 'k = 0', 'location', 'northwest');
+legend('k = 1 CGH', 'k = 0 CGH', 'k = 1 Baseline', 'k = 0 Baseline', ...
+    'location', 'northwest');
 title('Chained Graph In-Group Average Error');
 
 %% Plot subsampled trajectories
