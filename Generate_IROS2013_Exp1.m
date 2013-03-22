@@ -1,17 +1,16 @@
 % Factorial testing over n, alpha with fixed random seeds
 
 % Use same seeds for each trial per experiment
-seeds = 1:1;
+seeds = 1:20;
 num_trials = numel(seeds);
-trial_length = 100; % Number of steps to simulate per trial
+trial_length = 200; % Number of steps to simulate per trial
 
 % Test parameters
 time_scales = [40,8,1];
-time_overlaps = [4,1,0];
+time_overlaps = [2,1,0];
 
 % Other fixed parameters
 world_dims = [80;80];
-%chain_holdoff = [1; 1; 1];
 chain_holdoff = [0; 0; 0];
 representative_holdoff = [6; 0; 0];
 
@@ -40,18 +39,18 @@ r_template = GenerateStraightRobot(world_dims);
 N = b^(d-1);
 
 % Visualization
-truth_plotter = SequencePlotter(world_dims);
-truth_plotter.z_scale = 0.1;
-truth_plotter.colors = repmat([0,0,0],N,1);
-truth_plotter.labels_on = false(1);
-
-belief_plotter = HierarchyPlotter(world_dims);
-belief_plotter.z_scale = 0.1;
-belief_plotter.Link(truth_plotter);
-belief_plotter.labels_on = false(1);
-belief_plotter.colors = [0, 0, 1;
-                         0, 1, 0;
-                         1, 0, 0];
+% truth_plotter = SequencePlotter(world_dims);
+% truth_plotter.z_scale = 0.1;
+% truth_plotter.colors = repmat([0,0,0],N,1);
+% truth_plotter.labels_on = false(1);
+% 
+% belief_plotter = HierarchyPlotter(world_dims);
+% belief_plotter.z_scale = 0.1;
+% belief_plotter.Link(truth_plotter);
+% belief_plotter.labels_on = false(1);
+% belief_plotter.colors = [0, 0, 1;
+%                          0, 1, 0;
+%                          1, 0, 0];
      
 % Latest error plot                     
 local_lines = [];                     
@@ -160,8 +159,8 @@ for s = 1:num_trials
         
         gn = GNSolver(1E-3, 100);
  %       odo = OdometrySolver(1E-6, 100);
-        %baseline_graph = gn.Solve(truth);        
-        baseline_graph = truth;
+        baseline_graph = gn.Solve(truth);        
+%         baseline_graph = truth;
 %        odo_graph = odo.Solve(truth);
         odo_graph = truth;
 
@@ -195,13 +194,13 @@ for s = 1:num_trials
         
         fprintf('\tlocal e0: %f e1: %f e2: %f\n', cg_errs(3), cg_errs(2), cg_errs(1));                
 
-        truth_plotter.Clear();
-        belief_plotter.Clear();
-        truth_plotter.PlotSequence(sim.history(sim.history_ind-1));
-        belief_plotter.PlotBeliefs(sim.world.robots(1).roles(1));
-        axis(belief_plotter.axe, 'tight');
-        truth_plotter.HideLines();
-        truth_plotter.HideLabels();
+%         truth_plotter.Clear();
+%         belief_plotter.Clear();
+%         truth_plotter.PlotSequence(sim.history(sim.history_ind-1));
+%         belief_plotter.PlotBeliefs(sim.world.robots(1).roles(1));
+%         axis(belief_plotter.axe, 'tight');
+%         truth_plotter.HideLines();
+%         truth_plotter.HideLabels();
         
         pause(0.1);
         
@@ -313,33 +312,35 @@ relative_odo_ratios = mean(trial_rel_cge./trial_rel_oe, 3);
 % title('Latest Global Frame Estimate vs. Baseline Localized Error');
 
 figure;
-hold on;
-plot(0:trial_length-1, latest_estimate_errors(2,:), 'g-', 'linewidth', 1.5);
-plot(0:trial_length-1, latest_estimate_errors(3,:), 'b-', 'linewidth', 1.5);
-plot(0:trial_length-1, latest_estimate_errors(4,:), 'm-', 'linewidth', 1.5);
-plot(0:trial_length-1, latest_baseline_errors(2,:), 'g:', 'linewidth', 2);
-plot(0:trial_length-1, latest_baseline_errors(3,:), 'b:', 'linewidth', 2);
-plot(0:trial_length-1, latest_baseline_errors(4,:), 'm:', 'linewidth', 2);
+a = axes;
+hold(a, 'on');
+plot(a, 0:trial_length-1, latest_estimate_errors(2,:), 'g-', 'linewidth', 1.5);
+plot(a, 0:trial_length-1, latest_estimate_errors(3,:), 'b-', 'linewidth', 1.5);
+plot(a, 0:trial_length-1, latest_estimate_errors(4,:), 'm-', 'linewidth', 1.5);
+plot(a, 0:trial_length-1, latest_baseline_errors(2,:), 'g:', 'linewidth', 2);
+plot(a, 0:trial_length-1, latest_baseline_errors(3,:), 'b:', 'linewidth', 2);
+plot(a, 0:trial_length-1, latest_baseline_errors(4,:), 'm:', 'linewidth', 2);
 
-xlabel('Step number');
-ylabel('Average localization error norm (m)');
-legend('k = 1 CGH', 'k = 0 CGH', 'Global CGH', ...
+xlabel(a, 'Step number', 'FontSize', 11);
+ylabel(a, 'Average localization error norm (m)', 'FontSize', 11);
+legend(a, 'k = 1 CGH', 'k = 0 CGH', 'Global CGH', ...
        'k = 1 Baseline', 'k = 0 Baseline', 'Global Baseline', ...
        'location', 'best')
-title('Chained Graph and Baseline Localization Error');
+title(a, 'Chained Graph and Baseline Localization Error', 'FontSize', 11);
 
 
 %%
 
- figure;
-hold on;
-plot(0:trial_length-1, relative_baseline_ratios(2,:), 'g-', 'linewidth', 2);
-plot(0:trial_length-1, relative_baseline_ratios(3,:), 'b-', 'linewidth', 2);
-plot([0,trial_length-1], [1,1], 'k--');
-xlabel('Step number');
-ylabel('CG error/GN error');
-legend('k = 1', 'k = 0', 'location', 'best');
-title('Baseline Relative Performance Ratio vs. Steps');
+% figure;
+% a = axes;
+% hold(a, 'on');
+% plot(a, 0:trial_length-1, relative_baseline_ratios(2,:), 'g-', 'linewidth', 2);
+% plot(a, 0:trial_length-1, relative_baseline_ratios(3,:), 'b-', 'linewidth', 2);
+% plot(a, [0,trial_length-1], [1,1], 'k--');
+% xlabel(a, 'Step number', 'FontSize', 12);
+% ylabel(a, 'CG error/GN error', 'FontSize', 12);
+% legend(a, 'k = 1', 'k = 0', 'location', 'best');
+% title(a, 'Relation Error Ratios', 'FontSize', 12);
 
 % figure;
 % hold on;
@@ -352,16 +353,17 @@ title('Baseline Relative Performance Ratio vs. Steps');
 % title('Odometry Relative Performance Ratio vs. Steps');
 
 figure;
-hold on;
-plot(0:trial_length-1, relative_estimate_errors(2,:), 'g-', 'linewidth', 2);
-plot(0:trial_length-1, relative_estimate_errors(3,:), 'b-', 'linewidth', 2);
-plot(0:trial_length-1, relative_baseline_errors(2,:), 'g:', 'linewidth', 2);
-plot(0:trial_length-1, relative_baseline_errors(3,:), 'b:', 'linewidth', 2);
-xlabel('Step number');
-ylabel('Average error norm (m)');
-legend('k = 1 CGH', 'k = 0 CGH', 'k = 1 Baseline', 'k = 0 Baseline', ...
-    'location', 'northwest');
-title('Chained Graph In-Group Average Error');
+a = axes;
+hold(a, 'on');
+plot(a, 0:trial_length-1, relative_estimate_errors(2,:), 'g-', 'linewidth', 2);
+plot(a, 0:trial_length-1, relative_estimate_errors(3,:), 'b-', 'linewidth', 2);
+plot(a, 0:trial_length-1, relative_baseline_errors(2,:), 'g:', 'linewidth', 2);
+plot(a, 0:trial_length-1, relative_baseline_errors(3,:), 'b:', 'linewidth', 2);
+xlabel(a, 'Step number', 'FontSize', 11);
+ylabel(a, 'Average error norm (m)', 'FontSize', 11);
+legend(a, 'k = 1 CGH', 'k = 0 CGH', 'k = 1 Baseline', 'k = 0 Baseline', ...
+    'location', 'best');
+title(a, 'Average Relation Error', 'FontSize', 11);
 
 %% Plot subsampled trajectories
 % 

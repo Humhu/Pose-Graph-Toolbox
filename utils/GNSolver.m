@@ -60,7 +60,7 @@ classdef GNSolver < handle
             
             while(norm(rem) > obj.tolerance)
                 %norm(rem)                
-                [solution, rem, cov] = obj.Iterate(solution, measurements, anchor);
+                [solution, rem, H] = obj.Iterate(solution, measurements, anchor);
                 obj.iterations = obj.iterations + 1;
                 %plotter.Clear();
                 %plotter.PlotSequence(solution);
@@ -68,6 +68,7 @@ classdef GNSolver < handle
                 %fprintf(['Iteration: ', num2str(obj.iterations), ...
                 %    '\tDelta max: ', num2str(norm(rem)), '\n']);
             end
+            cov = inv(H);
             
         end
         
@@ -75,7 +76,7 @@ classdef GNSolver < handle
     
     methods(Access = private)
         
-        function [solution, delta, covs] = Iterate(obj, sequence, measurements, anchor)
+        function [solution, delta, H] = Iterate(obj, sequence, measurements, anchor)
             
             T = numel(sequence);
             N = sequence.GetDimension();
@@ -124,10 +125,10 @@ classdef GNSolver < handle
                 J_tar = [R,          zeros(2,1);
                     zeros(1,2), 1];
                 J = [J_obs, J_tar];
-                %Hij = J'*info*J;
-                Hij = J'*(m.covariance\J);
-                %bij = e'*info*J;
-                bij = e'*(m.covariance\J);
+                
+                temp = m.covariance\J;
+                Hij = J'*temp;
+                bij = e'*temp;
                 
                 % Add matrix into appropriate blocks
                 obs_istart = 3*N*(obs_t - 1) + 3*(obs_id-1) + 1;
@@ -169,7 +170,7 @@ classdef GNSolver < handle
             end
             
             % Store diagonal covariances
-            covs = inv(H);
+            %covs = inv(H);
             
         end
         
