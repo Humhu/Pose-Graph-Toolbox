@@ -152,6 +152,8 @@ for s = 1:num_trials
     tscope1_0 = cell(trial_length, 1);
     tscope2_0 = cell(trial_length, 1);
     
+    comm_lengths = zeros(1, trial_length);
+    
     for i = 1:trial_length
         
         t0 = cg0_0.time_scope(1);        
@@ -208,7 +210,7 @@ for s = 1:num_trials
         
         sim.Step();
         n_comm = sim.comms.GetPendingSize();
-        
+        comm_lengths(i) = n_comm;
         fprintf(['\tMessages sent: ', num2str(n_comm), '\n']);
         
         tscope0_0{i} = cg0_0.time_scope;
@@ -417,3 +419,8 @@ if false
     odo_plotter.HideLines();
     odo_plotter.HideLabels();
 end
+
+%%
+load handel;
+player = audioplayer(y, Fs);
+play(player);

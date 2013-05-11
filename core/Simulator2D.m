@@ -63,7 +63,7 @@ classdef Simulator2D < handle
             obj.history_ind = 1;
             state = obj.world.GetState();
             obj.history(obj.history_ind) = state;
-            obj.history_ind = obj.history_ind + 1;
+            %obj.history_ind = obj.history_ind + 1;
             
             if obj.vis_on
                 obj.plotter.Clear();
@@ -118,6 +118,7 @@ classdef Simulator2D < handle
             
             obj.world.GenerateMeasurements();
             obj.history(1) = obj.world.state;
+            obj.history_ind = 2;
             
         end
         

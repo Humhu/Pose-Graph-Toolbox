@@ -41,6 +41,7 @@ classdef Robot < handle
             obj.pose = a.pose;
             obj.ID = a.ID;
             obj.odometry = [];
+            obj.last_output = zeros(3,1);
             
             obj.RegisterMotionController(a.motionController.Copy());
             obj.RegisterMotionModel(a.motionModel.Copy());
@@ -127,19 +128,26 @@ classdef Robot < handle
             u = obj.motionController.GenerateOutputs(obj.beliefs);            
             obj.pose = obj.motionModel.GenerateMotion(obj.pose, u);                                            
             
-            nextPose = currPose + u;
-            nextPose(3) = wrapToPi(nextPose(3));              
+            if state.time ~= 0
+    %             nextPose = currPose + u;
+    %             nextPose(3) = wrapToPi(nextPose(3));     
+                prevPose = currPose - obj.last_output;
+                prevPose(3) = wrapToPi(prevPose(3));
+
+                % TODO generalize to sensor and move to module
+                %obj.odometry = MeasurementRelativePose(currPose, nextPose, zeros(3));
+                obj.odometry = MeasurementRelativePose(prevPose, currPose, zeros(3));
+                obj.odometry.covariance = obj.motionModel.covariance;
+                obj.odometry.observer_id = obj.ID;
+                obj.odometry.target_id = obj.ID;
+                obj.odometry.observer_time = state.time - 1;
+                obj.odometry.target_time = state.time;
+            end
+            
+            obj.last_output = u;
             
             % TODO Has to come after odometry! Fix this!!
             obj.GenerateMeasurements(state);
-                
-            % TODO generalize to sensor and move to module
-            obj.odometry = MeasurementRelativePose(currPose, nextPose, zeros(3));
-            obj.odometry.covariance = obj.motionModel.covariance;
-            obj.odometry.observer_id = obj.ID;
-            obj.odometry.target_id = obj.ID;
-            obj.odometry.observer_time = state.time;
-            obj.odometry.target_time = state.time + 1;
             
             leaf_commID = obj.roles(end).commID;
             for i = 1:numel(obj.measurements)

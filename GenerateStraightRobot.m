@@ -23,7 +23,7 @@ function [r] = GenerateStraightRobot(world_dims)
     
     % Sensor
     rps = RelativePoseSensor();
-    rps.maxRange = 10;
+    rps.maxRange = 5;
     rps.mean = [0;0;0];
     % 1 cm X, 3 cm Y, 2 degree error per meter range (1%)
     rps.covariance = (0.01^2)*[1,   0,  0;
